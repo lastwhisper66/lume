@@ -29,16 +29,19 @@ async function readMarkdownTree(dir: string): Promise<FileNode[]> {
   return nodes
 }
 
-let workspaceRoot: string | null = null
+// 已打开的工作区根目录集合：切换文件夹不会让旧标签的文件因校验失败而无法保存
+const workspaceRoots = new Set<string>()
 
 function assertInWorkspace(p: string): string {
   const resolved = resolve(p)
-  if (!workspaceRoot) throw new Error('未打开工作区')
-  const rel = relative(workspaceRoot, resolved)
-  if (rel === '' || rel.startsWith('..') || isAbsolute(rel)) {
-    throw new Error('路径越界，拒绝访问')
+  if (workspaceRoots.size === 0) throw new Error('未打开工作区')
+  for (const root of workspaceRoots) {
+    const rel = relative(root, resolved)
+    if (rel !== '' && !rel.startsWith('..') && !isAbsolute(rel)) {
+      return resolved
+    }
   }
-  return resolved
+  throw new Error('路径越界，拒绝访问')
 }
 
 function createWindow(): void {
@@ -102,7 +105,7 @@ app.whenReady().then(() => {
     const { canceled, filePaths } = await dialog.showOpenDialog({ properties: ['openDirectory'] })
     if (canceled || !filePaths[0]) return null
     const root = filePaths[0]
-    workspaceRoot = root
+    workspaceRoots.add(root)
     const tree = await readMarkdownTree(root)
     return { root, tree }
   })

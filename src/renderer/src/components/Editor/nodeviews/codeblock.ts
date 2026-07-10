@@ -162,6 +162,12 @@ export class CodeBlockView {
     return true
   }
 
+  ignoreMutation(): boolean {
+    // 代码块内部由 CodeMirror 管理，忽略所有 DOM mutation（含选区），
+    // 避免 ProseMirror 的选区观察器与 CodeMirror 抢选区。
+    return true
+  }
+
   destroy(): void {
     this.cm.destroy()
   }
