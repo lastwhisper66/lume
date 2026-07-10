@@ -38,23 +38,23 @@ const headingRule = textblockTypeInputRule(
 // "**x**" → strong
 function markInputRule(regexp: RegExp, markType: MarkType): InputRule {
   return new InputRule(regexp, (state, match, start, end) => {
-    const [full, content] = match
+    const content = match[1]
+    if (!content) return null
+    const delimLen = (match[0].length - content.length) / 2
+    const textStart = start + delimLen
+    const textEnd = end - delimLen
     const tr = state.tr
-    if (content) {
-      const textStart = start + full.indexOf(content)
-      const textEnd = textStart + content.length
-      if (textEnd < end) tr.delete(textEnd, end)
-      if (textStart > start) tr.delete(start, textStart)
-      const to = start + content.length
-      tr.addMark(start, to, markType.create())
-      tr.removeStoredMark(markType)
-    }
+    if (textEnd < end) tr.delete(textEnd, end)
+    if (textStart > start) tr.delete(start, textStart)
+    const to = start + content.length
+    tr.addMark(start, to, markType.create())
+    tr.removeStoredMark(markType)
     return tr
   })
 }
 
 const strongRule = markInputRule(/\*\*([^*]+)\*\*$/, schema.marks.strong)
-const emRule = markInputRule(/(?:^|[^*])\*([^*]+)\*$/, schema.marks.em)
+const emRule = markInputRule(/(?<!\*)\*([^*]+)\*$/, schema.marks.em)
 const codeRule = markInputRule(/`([^`]+)`$/, schema.marks.code)
 
 export function buildInputRules(): Plugin {
