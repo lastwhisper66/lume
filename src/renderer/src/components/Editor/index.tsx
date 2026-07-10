@@ -4,7 +4,6 @@ import { useWorkspace } from '../../store/workspace'
 import { CodeBlockView } from './nodeviews/codeblock'
 import { ImageView } from './nodeviews/image'
 import 'prosemirror-tables/style/tables.css'
-import './Editor.css'
 
 export function Editor(): React.JSX.Element {
   const mountRef = useRef<HTMLDivElement>(null)

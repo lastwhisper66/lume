@@ -1,33 +1,18 @@
 @import './base.css';
-
-:root {
-  --lume-bg: #ffffff;
-  --lume-surface: #f7f8fa;
-  --lume-text: #2b2b2b;
-  --lume-text-muted: #8a8a8a;
-  --lume-border: #ececec;
-  --lume-hover: #f0f1f3;
-  --lume-active: #e6e8eb;
-  --lume-accent: #3b82f6;
-}
+@import '../styles/fallback.css';
+@import '../styles/structure.css';
+@import '../styles/editor.css';
 
 body {
   min-height: 100vh;
   overflow: hidden;
+  user-select: none;
   background: var(--lume-bg);
   color: var(--lume-text);
-  user-select: none;
+  font-family: var(--lume-font-ui);
   -webkit-font-smoothing: antialiased;
 }
 
 #root {
   height: 100vh;
-}
-
-code {
-  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
-  font-size: 85%;
-  padding: 2px 5px;
-  border-radius: 4px;
-  background-color: var(--lume-hover);
 }

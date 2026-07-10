@@ -8,6 +8,7 @@ html, body, #root { height: 100%; margin: 0; }
   height: 100vh;
   background: var(--lume-bg);
   color: var(--lume-text);
+  font-family: var(--lume-font-ui);
 }
 
 /* ---------- Sidebar ---------- */
@@ -15,13 +16,11 @@ html, body, #root { height: 100%; margin: 0; }
   display: flex;
   flex-direction: column;
   border-right: 1px solid var(--lume-border);
-  background: var(--lume-surface);
+  background: var(--lume-bg-sidebar);
   overflow-y: auto;
   padding: 12px;
 }
-
 .file-tree { display: flex; flex-direction: column; }
-
 .open-folder-btn {
   width: 100%;
   padding: 8px 12px;
@@ -35,9 +34,8 @@ html, body, #root { height: 100%; margin: 0; }
   cursor: pointer;
   transition: background 0.15s ease, border-color 0.15s ease;
 }
-.open-folder-btn:hover { background: var(--lume-hover); border-color: #dcdee1; }
-.open-folder-btn:active { background: var(--lume-active); }
-
+.open-folder-btn:hover { background: var(--lume-bg-hover); border-color: var(--lume-border-strong); }
+.open-folder-btn:active { background: var(--lume-bg-active); }
 .workspace-root {
   margin: 4px 4px 8px;
   font-size: 11px;
@@ -46,18 +44,17 @@ html, body, #root { height: 100%; margin: 0; }
   text-transform: uppercase;
   color: var(--lume-text-muted);
 }
-
 .tree-file {
   padding: 4px 8px;
   cursor: pointer;
   font-size: 13px;
   border-radius: 6px;
-  color: #444;
+  color: var(--lume-text);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.tree-file:hover { background: var(--lume-hover); }
+.tree-file:hover { background: var(--lume-bg-hover); }
 .tree-dir-name {
   font-size: 13px;
   font-weight: 500;
@@ -81,7 +78,7 @@ html, body, #root { height: 100%; margin: 0; }
   align-items: stretch;
   height: 38px;
   border-bottom: 1px solid var(--lume-border);
-  background: var(--lume-surface);
+  background: var(--lume-bg-sidebar);
   overflow-x: auto;
 }
 .tab {
@@ -96,14 +93,14 @@ html, body, #root { height: 100%; margin: 0; }
   color: var(--lume-text-muted);
   transition: background 0.15s ease, color 0.15s ease;
 }
-.tab:hover { background: var(--lume-hover); }
+.tab:hover { background: var(--lume-bg-hover); }
 .tab.active {
   background: var(--lume-bg);
   color: var(--lume-text);
   box-shadow: inset 0 -2px 0 var(--lume-accent);
 }
 .tab-title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.tab-dirty { color: #e08a00; }
+.tab-dirty { color: var(--lume-dirty); }
 .tab-close {
   display: inline-flex;
   align-items: center;
@@ -111,10 +108,10 @@ html, body, #root { height: 100%; margin: 0; }
   width: 16px;
   height: 16px;
   border-radius: 4px;
-  color: #b0b0b0;
+  color: var(--lume-text-muted);
   line-height: 1;
 }
-.tab-close:hover { background: var(--lume-active); color: #666; }
+.tab-close:hover { background: var(--lume-bg-active); color: var(--lume-text); }
 
 /* ---------- Empty state ---------- */
 .lume-empty {
