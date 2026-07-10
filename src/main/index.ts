@@ -3,6 +3,8 @@ import { join, resolve, relative, isAbsolute } from 'path'
 import { promises as fs } from 'fs'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
+import { ThemeManager } from './theme'
+import { buildAppMenu } from './menu'
 
 interface FileNode {
   name: string
@@ -42,6 +44,17 @@ function assertInWorkspace(p: string): string {
     }
   }
   throw new Error('路径越界，拒绝访问')
+}
+
+const themeManager = new ThemeManager()
+
+/** 把当前有效主题推给所有窗口，并重建菜单勾选 */
+async function pushTheme(): Promise<void> {
+  const payload = await themeManager.currentCss()
+  for (const w of BrowserWindow.getAllWindows()) {
+    w.webContents.send('theme:apply', payload)
+  }
+  await buildAppMenu(themeManager)
 }
 
 function createWindow(): void {
@@ -91,9 +104,13 @@ function createWindow(): void {
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   // Set app user model id for windows
   electronApp.setAppUserModelId('com.lume.app')
+
+  await themeManager.init(() => {
+    void pushTheme()
+  })
 
   // Default open or close DevTools by F12 in development
   // and ignore CommandOrControl + R in production.
@@ -128,7 +145,23 @@ app.whenReady().then(() => {
     return filePath
   })
 
+  ipcMain.handle('theme:current', () => themeManager.currentCss())
+  ipcMain.handle('theme:list', () => themeManager.listThemes())
+  ipcMain.on('theme:select', (_e, name: string) => {
+    void themeManager.select(name)
+  })
+  ipcMain.on('theme:setMode', (_e, patch: Partial<import('./theme').ThemeSettings>) => {
+    void themeManager.setMode(patch)
+  })
+  ipcMain.on('theme:openFolder', () => {
+    themeManager.openFolder()
+  })
+  ipcMain.on('theme:rescan', () => {
+    themeManager.rescan()
+  })
+
   createWindow()
+  await buildAppMenu(themeManager)
 
   app.on('activate', function () {
     // On macOS it's common to re-create a window in the app when the
