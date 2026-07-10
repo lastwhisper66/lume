@@ -6,7 +6,8 @@ import type { EditorView } from 'prosemirror-view'
 const INLINE_DELIMS: Record<string, string> = {
   strong: '**',
   em: '*',
-  code: '`'
+  code: '`',
+  strikethrough: '~~'
 }
 
 /** 生成一个灰色、不可编辑的语法符号 widget */

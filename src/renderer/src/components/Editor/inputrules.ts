@@ -56,6 +56,7 @@ function markInputRule(regexp: RegExp, markType: MarkType): InputRule {
 const strongRule = markInputRule(/\*\*([^*]+)\*\*$/, schema.marks.strong)
 const emRule = markInputRule(/(?<!\*)\*([^*]+)\*$/, schema.marks.em)
 const codeRule = markInputRule(/`([^`]+)`$/, schema.marks.code)
+const strikeRule = markInputRule(/~~([^~]+)~~$/, schema.marks.strikethrough)
 
 export function buildInputRules(): Plugin {
   return inputRules({
@@ -70,7 +71,8 @@ export function buildInputRules(): Plugin {
       headingRule,
       strongRule,
       emRule,
-      codeRule
+      codeRule,
+      strikeRule
     ]
   })
 }

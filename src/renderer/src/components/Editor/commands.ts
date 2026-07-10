@@ -6,6 +6,7 @@ import { schema } from './schema/gfm'
 export const toggleStrong: Command = toggleMark(schema.marks.strong)
 export const toggleEm: Command = toggleMark(schema.marks.em)
 export const toggleCode: Command = toggleMark(schema.marks.code)
+export const toggleStrikethrough: Command = toggleMark(schema.marks.strikethrough)
 
 const hardBreak = schema.nodes.hard_break
 const insertHardBreak: Command = chainCommands(exitCode, (state, dispatch) => {
@@ -19,6 +20,7 @@ export const keymapBindings: Record<string, Command> = {
   'Mod-b': toggleStrong,
   'Mod-i': toggleEm,
   'Mod-`': toggleCode,
+  'Mod-Shift-x': toggleStrikethrough,
   'Mod-z': undo,
   'Mod-y': redo,
   'Shift-Mod-z': redo,
