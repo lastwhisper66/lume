@@ -9,7 +9,7 @@ import {
 } from 'prosemirror-inputrules'
 import type { Plugin } from 'prosemirror-state'
 import type { MarkType } from 'prosemirror-model'
-import { schema } from './schema/base'
+import { schema } from './schema/gfm'
 
 // "> " → blockquote
 const blockQuoteRule = wrappingInputRule(/^\s*>\s$/, schema.nodes.blockquote)

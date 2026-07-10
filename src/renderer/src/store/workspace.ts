@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { EditorState } from 'prosemirror-state'
 import type { FileNode } from '../../../preload/index'
-import { schema } from '../components/Editor/schema/base'
+import { schema } from '../components/Editor/schema/gfm'
 import { buildPlugins } from '../components/Editor/plugins'
 import { parse } from '../components/Editor/markdown/parser'
 import { serialize } from '../components/Editor/markdown/serializer'

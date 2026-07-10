@@ -1,7 +1,7 @@
 import { toggleMark, setBlockType, wrapIn, chainCommands, exitCode } from 'prosemirror-commands'
 import { undo, redo } from 'prosemirror-history'
 import type { Command } from 'prosemirror-state'
-import { schema } from './schema/base'
+import { schema } from './schema/gfm'
 
 export const toggleStrong: Command = toggleMark(schema.marks.strong)
 export const toggleEm: Command = toggleMark(schema.marks.em)
