@@ -127,9 +127,15 @@ function linkDecorations(state: EditorState, decos: Decoration[]): void {
 
   parent.forEach((child) => {
     const link = child.marks.find((m) => m.type.name === 'link')
+    const childHref = link ? ((link.attrs.href as string) || '') : null
     if (link && rangeStart === null) {
       rangeStart = pos
-      href = (link.attrs.href as string) || ''
+      href = childHref as string
+    } else if (link && rangeStart !== null && childHref !== href) {
+      // 相邻但 href 不同：结束上一个链接范围，开启新的
+      flush(pos)
+      rangeStart = pos
+      href = childHref as string
     } else if (!link && rangeStart !== null) {
       flush(pos)
     }
