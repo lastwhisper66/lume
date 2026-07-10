@@ -17,8 +17,7 @@ const api = {
     read: (path: string): Promise<string> => ipcRenderer.invoke('file:read', path),
     save: (path: string, content: string): Promise<void> =>
       ipcRenderer.invoke('file:save', path, content),
-    saveAs: (content: string): Promise<string | null> =>
-      ipcRenderer.invoke('file:saveAs', content)
+    saveAs: (content: string): Promise<string | null> => ipcRenderer.invoke('file:saveAs', content)
   },
   app: {
     onQueryClose: (cb: () => void): (() => void) => {
