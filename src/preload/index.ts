@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from 'electron'
+import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 
 export interface FileNode {
@@ -8,11 +8,22 @@ export interface FileNode {
   children?: FileNode[]
 }
 
+export interface DroppedResult {
+  folder: { root: string; tree: FileNode[] } | null
+  files: string[]
+}
+
 const api = {
   workspace: {
     openFolder: (): Promise<{ root: string; tree: FileNode[] } | null> =>
       ipcRenderer.invoke('workspace:openFolder'),
-    openFile: (): Promise<string | null> => ipcRenderer.invoke('workspace:openFile')
+    openFile: (): Promise<string | null> => ipcRenderer.invoke('workspace:openFile'),
+    openDropped: (paths: string[]): Promise<DroppedResult> =>
+      ipcRenderer.invoke('workspace:openDropped', paths)
+  },
+  dnd: {
+    /** 把拖入的 File 解析为绝对路径（Electron 39 已移除 File.path） */
+    pathForFile: (file: File): string => webUtils.getPathForFile(file)
   },
   file: {
     read: (path: string): Promise<string> => ipcRenderer.invoke('file:read', path),

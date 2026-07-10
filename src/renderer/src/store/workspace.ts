@@ -23,6 +23,7 @@ interface WorkspaceStore {
   openFolder: () => Promise<void>
   openFile: (path: string) => Promise<void>
   openFileByDialog: () => Promise<void>
+  openDropped: (files: File[]) => Promise<void>
   setActive: (id: string) => void
   updateTabState: (id: string, state: EditorState) => void
   saveActive: () => Promise<void>
@@ -66,6 +67,16 @@ export const useWorkspace = create<WorkspaceStore>((set, get) => ({
     const path = await window.api.workspace.openFile()
     if (!path) return
     await get().openFile(path)
+  },
+
+  openDropped: async (files) => {
+    const paths = files.map((f) => window.api.dnd.pathForFile(f)).filter(Boolean)
+    if (paths.length === 0) return
+    const { folder, files: mdFiles } = await window.api.workspace.openDropped(paths)
+    if (folder) set({ root: folder.root, tree: folder.tree })
+    for (const p of mdFiles) {
+      await get().openFile(p)
+    }
   },
 
   setActive: (id) => set({ activeTabId: id }),

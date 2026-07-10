@@ -140,6 +140,28 @@ app.whenReady().then(async () => {
     return filePath
   })
 
+  ipcMain.handle('workspace:openDropped', async (_e, paths: string[]) => {
+    let folder: { root: string; tree: FileNode[] } | null = null
+    const files: string[] = []
+    for (const p of paths) {
+      const stat = await fs.stat(p).catch(() => null)
+      if (!stat) continue
+      if (stat.isDirectory()) {
+        // 仅第一个文件夹被当作工作区打开（替换当前工作区）
+        if (!folder) {
+          const root = resolve(p)
+          workspaceRoots.add(root)
+          folder = { root, tree: await readMarkdownTree(root) }
+        }
+      } else if (stat.isFile() && /\.(md|markdown)$/i.test(p)) {
+        const resolved = resolve(p)
+        workspaceRoots.add(dirname(resolved))
+        files.push(resolved)
+      }
+    }
+    return { folder, files }
+  })
+
   ipcMain.handle('file:read', async (_e, path: string) => {
     return fs.readFile(assertInWorkspace(path), 'utf-8')
   })

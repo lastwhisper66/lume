@@ -9,6 +9,7 @@ html, body, #root { height: 100%; margin: 0; }
   background: var(--lume-bg);
   color: var(--lume-text);
   font-family: var(--lume-font-ui);
+  position: relative;
 }
 
 /* ---------- Sidebar ---------- */
@@ -106,4 +107,27 @@ html, body, #root { height: 100%; margin: 0; }
   justify-content: center;
   color: var(--lume-text-muted);
   font-size: 15px;
+}
+
+/* ---------- Drop overlay ---------- */
+.drop-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--lume-bg) 55%, transparent);
+  backdrop-filter: blur(1px);
+  pointer-events: none;
+}
+.drop-overlay-inner {
+  padding: 24px 40px;
+  border: 2px dashed var(--lume-accent);
+  border-radius: 12px;
+  background: var(--lume-bg-sidebar);
+  color: var(--lume-text);
+  font-size: 15px;
+  font-weight: 500;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.18);
 }
