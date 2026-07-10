@@ -1,32 +1,33 @@
-import { useCallback } from 'react'
+import { useEffect } from 'react'
 import Editor from './components/Editor'
-
-const SAMPLE = `# Lume
-
-这是一个 **加粗**、*斜体*、\`行内代码\` 的段落。
-
-> 引用块
-
-- 列表项 A
-- 列表项 B
-
-1. 有序一
-2. 有序二
-
-\`\`\`js
-console.log('hello')
-\`\`\`
-`
+import FileTree from './components/Workspace/FileTree'
+import TabBar from './components/Tabs/TabBar'
+import { useWorkspace } from './store/workspace'
+import './App.css'
 
 function App(): React.JSX.Element {
-  const handleChange = useCallback((markdown: string) => {
-    // 往返验证：编辑后在控制台观察序列化输出
-    console.log('[serialize]\\n' + markdown)
-  }, [])
+  const saveActive = useWorkspace((s) => s.saveActive)
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent): void => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+        e.preventDefault()
+        void saveActive()
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [saveActive])
 
   return (
-    <div style={{ height: '100vh' }}>
-      <Editor initialMarkdown={SAMPLE} onChange={handleChange} />
+    <div className="app-layout">
+      <div className="sidebar">
+        <FileTree />
+      </div>
+      <div className="main-pane">
+        <TabBar />
+        <Editor />
+      </div>
     </div>
   )
 }
