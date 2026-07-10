@@ -30,20 +30,6 @@ function blockDecorations(state: EditorState, decos: Decoration[]): void {
   if (parent.type.name === 'heading') {
     const prefix = '#'.repeat(parent.attrs.level as number) + ' '
     decos.push(Decoration.widget(start, markerWidget(prefix), { side: -1, key: 'block-h' }))
-  } else if (parent.type.name === 'code_block') {
-    const params = (parent.attrs.params as string) || ''
-    decos.push(
-      Decoration.widget(start, markerWidget('```' + params, 'md-marker-block'), {
-        side: -1,
-        key: 'fence-open'
-      })
-    )
-    decos.push(
-      Decoration.widget($from.end(), markerWidget('```', 'md-marker-block'), {
-        side: 1,
-        key: 'fence-close'
-      })
-    )
   }
 
   // blockquote：向上查祖先，命中则在当前段落前显示 '> '

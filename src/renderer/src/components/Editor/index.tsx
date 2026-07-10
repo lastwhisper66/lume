@@ -1,6 +1,8 @@
 import { useEffect, useRef } from 'react'
 import { EditorView } from 'prosemirror-view'
 import { useWorkspace } from '../../store/workspace'
+import { CodeBlockView } from './nodeviews/codeblock'
+import { ImageView } from './nodeviews/image'
 import 'prosemirror-tables/style/tables.css'
 import './Editor.css'
 
@@ -16,6 +18,10 @@ export function Editor(): React.JSX.Element {
     if (!mountRef.current || !activeState) return
     const view = new EditorView(mountRef.current, {
       state: activeState,
+      nodeViews: {
+        code_block: (node, view, getPos) => new CodeBlockView(node, view, getPos),
+        image: (node, view, getPos) => new ImageView(node, view, getPos)
+      },
       dispatchTransaction(tr) {
         const newState = view.state.apply(tr)
         view.updateState(newState)

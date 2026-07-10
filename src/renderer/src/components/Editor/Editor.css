@@ -57,3 +57,28 @@
 .lume-editor li[data-checked='true']::before {
   content: '☑';
 }
+
+.cm-code-block {
+  border: 1px solid #e5e5e5;
+  border-radius: 6px;
+  margin: 0.75em 0;
+  overflow: hidden;
+}
+.cm-code-block .cm-editor {
+  font-size: 14px;
+}
+.cm-code-block .cm-focused {
+  outline: none;
+}
+
+.lume-image img {
+  max-width: 100%;
+  cursor: pointer;
+  border-radius: 4px;
+}
+.lume-image-src {
+  width: 100%;
+  font-family: ui-monospace, monospace;
+  font-size: 13px;
+  padding: 4px 6px;
+}
