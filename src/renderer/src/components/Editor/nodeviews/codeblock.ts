@@ -6,17 +6,51 @@ import {
 } from '@codemirror/view'
 import { EditorState as CMState, Compartment } from '@codemirror/state'
 import { defaultKeymap, indentWithTab } from '@codemirror/commands'
-import {
-  syntaxHighlighting,
-  defaultHighlightStyle,
-  LanguageDescription
-} from '@codemirror/language'
+import { syntaxHighlighting, HighlightStyle, LanguageDescription } from '@codemirror/language'
 import { languages } from '@codemirror/language-data'
+import { tags as t } from '@lezer/highlight'
 import { exitCode } from 'prosemirror-commands'
 import { undo, redo } from 'prosemirror-history'
 import { TextSelection, Selection } from 'prosemirror-state'
 import type { Node as PMNode } from 'prosemirror-model'
 import type { EditorView } from 'prosemirror-view'
+
+// 变量驱动的 CodeMirror 主题：颜色全部走 --lume-* 变量，随 Lume 主题明暗自动切换
+const lumeCmHighlight = HighlightStyle.define([
+  { tag: t.keyword, color: 'var(--lume-code-keyword)' },
+  { tag: [t.string, t.special(t.string)], color: 'var(--lume-code-string)' },
+  {
+    tag: [t.comment, t.lineComment, t.blockComment],
+    color: 'var(--lume-code-comment)',
+    fontStyle: 'italic'
+  },
+  { tag: [t.number, t.bool, t.null], color: 'var(--lume-code-number)' },
+  {
+    tag: [t.function(t.variableName), t.function(t.propertyName)],
+    color: 'var(--lume-code-function)'
+  },
+  { tag: [t.typeName, t.className, t.namespace], color: 'var(--lume-code-type)' },
+  { tag: t.tagName, color: 'var(--lume-code-tag)' },
+  { tag: t.attributeName, color: 'var(--lume-code-attribute)' },
+  { tag: [t.operator, t.punctuation], color: 'var(--lume-code-operator)' }
+])
+
+const lumeCmTheme = CMView.theme({
+  '&': {
+    color: 'var(--lume-text-code)',
+    backgroundColor: 'var(--lume-bg-code)'
+  },
+  '.cm-content': { fontFamily: 'var(--lume-font-mono)' },
+  '.cm-cursor, .cm-dropCursor': { borderLeftColor: 'var(--lume-text)' },
+  '&.cm-focused .cm-selectionBackground, .cm-selectionBackground, .cm-content ::selection': {
+    backgroundColor: 'var(--lume-bg-selection)'
+  },
+  '.cm-gutters': {
+    backgroundColor: 'var(--lume-bg-code)',
+    color: 'var(--lume-text-faint)',
+    border: 'none'
+  }
+})
 
 export class CodeBlockView {
   dom: HTMLElement
@@ -35,7 +69,8 @@ export class CodeBlockView {
         extensions: [
           cmKeymap.of([...this.codeMirrorKeymap(), ...defaultKeymap, indentWithTab]),
           drawSelection(),
-          syntaxHighlighting(defaultHighlightStyle),
+          lumeCmTheme,
+          syntaxHighlighting(lumeCmHighlight),
           this.langCompartment.of([]),
           CMView.updateListener.of((u) => this.forwardUpdate(u))
         ]
