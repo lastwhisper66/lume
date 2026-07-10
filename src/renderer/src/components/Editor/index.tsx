@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { EditorView } from 'prosemirror-view'
 import { useWorkspace } from '../../store/workspace'
+import 'prosemirror-tables/style/tables.css'
 import './Editor.css'
 
 export function Editor(): React.JSX.Element {

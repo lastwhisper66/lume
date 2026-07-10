@@ -33,3 +33,20 @@
 .md-marker-block {
   display: block;
 }
+
+.lume-editor table {
+  border-collapse: collapse;
+  width: 100%;
+}
+.lume-editor th,
+.lume-editor td {
+  border: 1px solid #ddd;
+  padding: 6px 10px;
+}
+.lume-editor th {
+  background: #f7f7f7;
+  font-weight: 600;
+}
+.lume-editor li[data-checked] {
+  list-style: none;
+}
