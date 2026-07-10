@@ -43,6 +43,10 @@
 }
 .lume-editor .ProseMirror hr { border: none; border-top: 1px solid var(--lume-hr); }
 
+.lume-editor .ProseMirror:not(.ProseMirror-focused) .md-marker {
+  display: none;
+}
+
 .md-marker {
   color: var(--lume-marker);
   user-select: none;
