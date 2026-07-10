@@ -34,7 +34,8 @@
     "prosemirror-model": "^1.25.10",
     "prosemirror-schema-list": "^1.5.1",
     "prosemirror-state": "^1.4.4",
-    "prosemirror-view": "^1.42.0"
+    "prosemirror-view": "^1.42.0",
+    "zustand": "^5.0.14"
   },
   "devDependencies": {
     "@electron-toolkit/eslint-config-prettier": "^3.0.0",
