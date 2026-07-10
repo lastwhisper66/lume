@@ -27,6 +27,7 @@ export class ImageView {
     input.className = 'lume-image-src'
     input.value = this.node.attrs.src
     const commit = (): void => {
+      if (input.value === this.node.attrs.src) return
       const pos = this.getPos()
       if (pos === undefined) return
       const tr = this.view.state.tr.setNodeMarkup(pos, undefined, {

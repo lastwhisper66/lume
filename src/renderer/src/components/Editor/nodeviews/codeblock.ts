@@ -66,11 +66,13 @@ export class CodeBlockView {
     const pmSel = this.view.state.selection
     if (update.docChanged || pmSel.from !== selFrom || pmSel.to !== selTo) {
       const tr = this.view.state.tr
-      update.changes.iterChanges((fromA, toA, _fromB, _toB, text) => {
-        if (text.length)
+      update.changes.iterChanges((fromA, toA, fromB, toB, text) => {
+        if (text.length) {
           tr.replaceWith(offset + fromA, offset + toA, this.view.state.schema.text(text.toString()))
-        else tr.delete(offset + fromA, offset + toA)
-        offset += toA - fromA // 近似修正
+        } else {
+          tr.delete(offset + fromA, offset + toA)
+        }
+        offset += toB - fromB - (toA - fromA)
       })
       tr.setSelection(TextSelection.create(tr.doc, selFrom, selTo))
       this.view.dispatch(tr)
