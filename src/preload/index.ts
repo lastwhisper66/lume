@@ -21,8 +21,10 @@ const api = {
       ipcRenderer.invoke('file:saveAs', content)
   },
   app: {
-    onQueryClose: (cb: () => void): void => {
-      ipcRenderer.on('app:queryClose', () => cb())
+    onQueryClose: (cb: () => void): (() => void) => {
+      const listener = (): void => cb()
+      ipcRenderer.on('app:queryClose', listener)
+      return () => ipcRenderer.removeListener('app:queryClose', listener)
     },
     confirmClose: (): void => {
       ipcRenderer.send('app:confirmClose')

@@ -76,8 +76,12 @@ export const useWorkspace = create<WorkspaceStore>((set, get) => ({
     const { tabs, activeTabId } = get()
     const tab = tabs.find((t) => t.id === activeTabId)
     if (!tab) return
-    await window.api.file.save(tab.filePath, serialize(tab.editorState.doc))
-    set((s) => ({ tabs: s.tabs.map((t) => (t.id === tab.id ? { ...t, dirty: false } : t)) }))
+    try {
+      await window.api.file.save(tab.filePath, serialize(tab.editorState.doc))
+      set((s) => ({ tabs: s.tabs.map((t) => (t.id === tab.id ? { ...t, dirty: false } : t)) }))
+    } catch (e) {
+      window.alert(`保存失败：${String(e)}`)
+    }
   },
 
   closeTab: (id) => {

@@ -5,7 +5,6 @@ import './Editor.css'
 
 export function Editor(): React.JSX.Element {
   const mountRef = useRef<HTMLDivElement>(null)
-  const viewRef = useRef<EditorView | null>(null)
 
   const activeTabId = useWorkspace((s) => s.activeTabId)
   const activeState = useWorkspace((s) => s.tabs.find((t) => t.id === s.activeTabId)?.editorState)
@@ -23,10 +22,8 @@ export function Editor(): React.JSX.Element {
         if (id) updateTabState(id, newState)
       }
     })
-    viewRef.current = view
     return () => {
       view.destroy()
-      viewRef.current = null
     }
     // 仅依赖 activeTabId：切换 tab 时重建 view 并加载该 tab 的 state
     // eslint-disable-next-line react-hooks/exhaustive-deps

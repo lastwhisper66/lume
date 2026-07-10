@@ -1,5 +1,5 @@
 import { app, shell, BrowserWindow, ipcMain, dialog } from 'electron'
-import { join } from 'path'
+import { join, resolve, relative, isAbsolute } from 'path'
 import { promises as fs } from 'fs'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
@@ -16,6 +16,7 @@ async function readMarkdownTree(dir: string): Promise<FileNode[]> {
   const nodes: FileNode[] = []
   for (const entry of entries) {
     if (entry.name.startsWith('.')) continue
+    if (entry.isDirectory() && ['node_modules', 'dist', 'out'].includes(entry.name)) continue
     const full = join(dir, entry.name)
     if (entry.isDirectory()) {
       const children = await readMarkdownTree(full)
@@ -26,6 +27,18 @@ async function readMarkdownTree(dir: string): Promise<FileNode[]> {
   }
   nodes.sort((a, b) => Number(b.isDir) - Number(a.isDir) || a.name.localeCompare(b.name))
   return nodes
+}
+
+let workspaceRoot: string | null = null
+
+function assertInWorkspace(p: string): string {
+  const resolved = resolve(p)
+  if (!workspaceRoot) throw new Error('未打开工作区')
+  const rel = relative(workspaceRoot, resolved)
+  if (rel === '' || rel.startsWith('..') || isAbsolute(rel)) {
+    throw new Error('路径越界，拒绝访问')
+  }
+  return resolved
 }
 
 function createWindow(): void {
@@ -89,16 +102,17 @@ app.whenReady().then(() => {
     const { canceled, filePaths } = await dialog.showOpenDialog({ properties: ['openDirectory'] })
     if (canceled || !filePaths[0]) return null
     const root = filePaths[0]
+    workspaceRoot = root
     const tree = await readMarkdownTree(root)
     return { root, tree }
   })
 
   ipcMain.handle('file:read', async (_e, path: string) => {
-    return fs.readFile(path, 'utf-8')
+    return fs.readFile(assertInWorkspace(path), 'utf-8')
   })
 
   ipcMain.handle('file:save', async (_e, path: string, content: string) => {
-    await fs.writeFile(path, content, 'utf-8')
+    await fs.writeFile(assertInWorkspace(path), content, 'utf-8')
   })
 
   ipcMain.handle('file:saveAs', async (_e, content: string) => {

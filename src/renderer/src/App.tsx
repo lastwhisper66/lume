@@ -16,13 +16,16 @@ function App(): React.JSX.Element {
       }
     }
     window.addEventListener('keydown', onKey)
-    window.api.app.onQueryClose(() => {
+    const disposeQueryClose = window.api.app.onQueryClose(() => {
       const hasDirty = useWorkspace.getState().tabs.some((t) => t.dirty)
       if (!hasDirty || window.confirm('有未保存的文件，仍要退出吗？')) {
         window.api.app.confirmClose()
       }
     })
-    return () => window.removeEventListener('keydown', onKey)
+    return () => {
+      window.removeEventListener('keydown', onKey)
+      disposeQueryClose()
+    }
   }, [saveActive])
 
   return (
