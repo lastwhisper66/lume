@@ -1,7 +1,29 @@
-import { defaultMarkdownSerializer } from 'prosemirror-markdown'
+import { defaultMarkdownSerializer, MarkdownSerializer } from 'prosemirror-markdown'
 import type { Node as PMNode } from 'prosemirror-model'
+import { serializeTable } from './tables'
 
-// P1：CommonMark。P4 会替换为含表格/任务列表/删除线的自建 MarkdownSerializer。
+export const serializer = new MarkdownSerializer(
+  {
+    ...defaultMarkdownSerializer.nodes,
+    list_item(state, node) {
+      const checked = node.attrs.checked
+      if (checked !== null && checked !== undefined) {
+        state.write(checked ? '[x] ' : '[ ] ')
+      }
+      state.renderContent(node)
+    },
+    table: serializeTable,
+    // 表格由 serializeTable 整体处理，行/单元格不会被单独递归，提供 no-op 兜底
+    table_row() {},
+    table_cell() {},
+    table_header() {}
+  },
+  {
+    ...defaultMarkdownSerializer.marks,
+    strikethrough: { open: '~~', close: '~~', mixable: true, expelEnclosingWhitespace: true }
+  }
+)
+
 export function serialize(doc: PMNode): string {
-  return defaultMarkdownSerializer.serialize(doc)
+  return serializer.serialize(doc)
 }
