@@ -42,7 +42,7 @@ function markInputRule(regexp: RegExp, markType: MarkType): InputRule {
     if (!content) return null
     const delimLen = (match[0].length - content.length) / 2
     const textStart = start + delimLen
-    const textEnd = end - delimLen
+    const textEnd = textStart + content.length
     const tr = state.tr
     if (textEnd < end) tr.delete(textEnd, end)
     if (textStart > start) tr.delete(start, textStart)
