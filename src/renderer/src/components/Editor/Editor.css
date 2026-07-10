@@ -23,3 +23,13 @@
   border-radius: 6px;
   overflow-x: auto;
 }
+
+.md-marker {
+  color: #b8b8b8;
+  user-select: none;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.md-marker-block {
+  display: block;
+}

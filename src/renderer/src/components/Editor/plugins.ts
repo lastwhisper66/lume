@@ -6,6 +6,7 @@ import { gapCursor } from 'prosemirror-gapcursor'
 import type { Plugin } from 'prosemirror-state'
 import { keymapBindings } from './commands'
 import { buildInputRules } from './inputrules'
+import { syntaxRevealPlugin } from './syntaxReveal'
 
 export function buildPlugins(): Plugin[] {
   return [
@@ -14,6 +15,7 @@ export function buildPlugins(): Plugin[] {
     keymap(baseKeymap),
     dropCursor(),
     gapCursor(),
-    history()
+    history(),
+    syntaxRevealPlugin
   ]
 }
