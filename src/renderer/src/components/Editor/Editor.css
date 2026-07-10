@@ -50,3 +50,10 @@
 .lume-editor li[data-checked] {
   list-style: none;
 }
+.lume-editor li[data-checked]::before {
+  content: '☐';
+  margin-right: 6px;
+}
+.lume-editor li[data-checked='true']::before {
+  content: '☑';
+}

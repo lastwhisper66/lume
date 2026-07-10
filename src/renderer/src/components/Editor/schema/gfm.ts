@@ -16,7 +16,12 @@ if (!baseListItem) throw new Error('base schema 缺少 list_item')
 const nodes = base.spec.nodes
   .update('list_item', {
     ...baseListItem,
-    attrs: { ...(baseListItem.attrs ?? {}), checked: { default: null } }
+    attrs: { ...(baseListItem.attrs ?? {}), checked: { default: null } },
+    toDOM(node: import('prosemirror-model').Node) {
+      const checked = node.attrs.checked
+      if (checked === null) return ['li', 0]
+      return ['li', { 'data-checked': checked ? 'true' : 'false' }, 0]
+    }
   })
   // tableNodes 返回的 map 与 OrderedMap<NodeSpec>.append 的泛型不完全一致，用 as any 兜底
   .append(tNodes as never)

@@ -9,11 +9,11 @@ const INLINE: Record<string, [string, string]> = {
 }
 
 /** 将单元格 inline 内容渲染为一行 Markdown（转义竖线） */
-function serializeCell(cell: PMNode): string {
+function serializeCell(state: MarkdownSerializerState, cell: PMNode): string {
   let out = ''
   cell.forEach((child) => {
     if (!child.isText) return
-    let text = (child.text ?? '').replace(/\|/g, '\\|')
+    let text = state.esc(child.text ?? '').replace(/\|/g, '\\|')
     for (const mark of child.marks) {
       const d = INLINE[mark.type.name]
       if (d) text = d[0] + text + d[1]
@@ -29,7 +29,7 @@ export function serializeTable(state: MarkdownSerializerState, node: PMNode): vo
   const rows: string[][] = []
   node.forEach((row) => {
     const cells: string[] = []
-    row.forEach((cell) => cells.push(serializeCell(cell)))
+    row.forEach((cell) => cells.push(serializeCell(state, cell)))
     rows.push(cells)
   })
   if (rows.length === 0) return
