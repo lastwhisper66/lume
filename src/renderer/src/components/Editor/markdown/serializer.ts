@@ -14,9 +14,15 @@ export const serializer = new MarkdownSerializer(
     },
     table: serializeTable,
     // 表格由 serializeTable 整体处理，行/单元格不会被单独递归，提供 no-op 兜底
-    table_row() {},
-    table_cell() {},
-    table_header() {}
+    table_row() {
+      /* no-op: 由 serializeTable 处理 */
+    },
+    table_cell() {
+      /* no-op: 由 serializeTable 处理 */
+    },
+    table_header() {
+      /* no-op: 由 serializeTable 处理 */
+    }
   },
   {
     ...defaultMarkdownSerializer.marks,
