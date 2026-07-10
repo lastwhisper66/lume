@@ -97,12 +97,54 @@ function inlineDecorations(state: EditorState, decos: Decoration[]): void {
   }
 }
 
+function linkDecorations(state: EditorState, decos: Decoration[]): void {
+  const { selection } = state
+  const { $from } = selection
+  const parent = $from.parent
+  if (!parent.isTextblock) return
+
+  const blockStart = $from.start()
+  const selFrom = selection.from
+  const selTo = selection.to
+
+  let rangeStart: number | null = null
+  let href = ''
+  let pos = blockStart
+
+  const flush = (to: number): void => {
+    if (rangeStart === null) return
+    if (rangeStart <= selTo && to >= selFrom) {
+      decos.push(
+        Decoration.widget(rangeStart, markerWidget('['), { side: -1, key: `link-o-${rangeStart}` })
+      )
+      decos.push(
+        Decoration.widget(to, markerWidget(`](${href})`), { side: 1, key: `link-c-${to}` })
+      )
+    }
+    rangeStart = null
+    href = ''
+  }
+
+  parent.forEach((child) => {
+    const link = child.marks.find((m) => m.type.name === 'link')
+    if (link && rangeStart === null) {
+      rangeStart = pos
+      href = (link.attrs.href as string) || ''
+    } else if (!link && rangeStart !== null) {
+      flush(pos)
+    }
+    pos += child.nodeSize
+  })
+  flush(pos)
+}
+
 export const syntaxRevealPlugin = new Plugin({
   props: {
     decorations(state) {
       const decos: Decoration[] = []
       blockDecorations(state, decos)
       inlineDecorations(state, decos)
+      linkDecorations(state, decos)
       return DecorationSet.create(state.doc, decos)
     }
   }
