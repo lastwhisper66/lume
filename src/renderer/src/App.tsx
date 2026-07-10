@@ -1,34 +1,33 @@
-import Versions from './components/Versions'
-import electronLogo from './assets/electron.svg'
+import { useCallback } from 'react'
+import Editor from './components/Editor'
+
+const SAMPLE = `# Lume
+
+这是一个 **加粗**、*斜体*、\`行内代码\` 的段落。
+
+> 引用块
+
+- 列表项 A
+- 列表项 B
+
+1. 有序一
+2. 有序二
+
+\`\`\`js
+console.log('hello')
+\`\`\`
+`
 
 function App(): React.JSX.Element {
-  const ipcHandle = (): void => window.electron.ipcRenderer.send('ping')
+  const handleChange = useCallback((markdown: string) => {
+    // 往返验证：编辑后在控制台观察序列化输出
+    console.log('[serialize]\\n' + markdown)
+  }, [])
 
   return (
-    <>
-      <img alt="logo" className="logo" src={electronLogo} />
-      <div className="creator">Powered by electron-vite</div>
-      <div className="text">
-        Build an Electron app with <span className="react">React</span>
-        &nbsp;and <span className="ts">TypeScript</span>
-      </div>
-      <p className="tip">
-        Please try pressing <code>F12</code> to open the devTool
-      </p>
-      <div className="actions">
-        <div className="action">
-          <a href="https://electron-vite.org/" target="_blank" rel="noreferrer">
-            Documentation
-          </a>
-        </div>
-        <div className="action">
-          <a target="_blank" rel="noreferrer" onClick={ipcHandle}>
-            Send IPC
-          </a>
-        </div>
-      </div>
-      <Versions></Versions>
-    </>
+    <div style={{ height: '100vh' }}>
+      <Editor initialMarkdown={SAMPLE} onChange={handleChange} />
+    </div>
   )
 }
 
