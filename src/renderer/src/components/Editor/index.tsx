@@ -1,49 +1,40 @@
 import { useEffect, useRef } from 'react'
-import { EditorState } from 'prosemirror-state'
 import { EditorView } from 'prosemirror-view'
-import type { Node as PMNode } from 'prosemirror-model'
-import { schema } from './schema/base'
-import { buildPlugins } from './plugins'
-import { parse } from './markdown/parser'
-import { serialize } from './markdown/serializer'
+import { useWorkspace } from '../../store/workspace'
 import './Editor.css'
 
-interface EditorProps {
-  /** 初始 Markdown 文本 */
-  initialMarkdown: string
-  /** 文档变化时回调，返回最新序列化后的 Markdown */
-  onChange?: (markdown: string) => void
-}
-
-export function Editor({ initialMarkdown, onChange }: EditorProps): React.JSX.Element {
+export function Editor(): React.JSX.Element {
   const mountRef = useRef<HTMLDivElement>(null)
   const viewRef = useRef<EditorView | null>(null)
 
-  useEffect(() => {
-    if (!mountRef.current) return
+  const activeTabId = useWorkspace((s) => s.activeTabId)
+  const activeState = useWorkspace((s) => s.tabs.find((t) => t.id === s.activeTabId)?.editorState)
+  const updateTabState = useWorkspace((s) => s.updateTabState)
 
-    const doc: PMNode = parse(initialMarkdown)
-    const state = EditorState.create({ doc, schema, plugins: buildPlugins() })
+  // 创建/销毁 view
+  useEffect(() => {
+    if (!mountRef.current || !activeState) return
     const view = new EditorView(mountRef.current, {
-      state,
+      state: activeState,
       dispatchTransaction(tr) {
         const newState = view.state.apply(tr)
         view.updateState(newState)
-        if (tr.docChanged && onChange) {
-          onChange(serialize(newState.doc))
-        }
+        const id = useWorkspace.getState().activeTabId
+        if (id) updateTabState(id, newState)
       }
     })
     viewRef.current = view
-
     return () => {
       view.destroy()
       viewRef.current = null
     }
-    // 仅在挂载时创建一次；initialMarkdown 变化由上层通过 key 重建
+    // 仅依赖 activeTabId：切换 tab 时重建 view 并加载该 tab 的 state
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [activeTabId])
 
+  if (!activeState) {
+    return <div className="lume-editor lume-empty">打开一个 Markdown 文件开始编辑</div>
+  }
   return <div className="lume-editor" ref={mountRef} />
 }
 
