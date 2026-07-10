@@ -1,0 +1,50 @@
+/* Lume 内置深色主题 —— 覆盖全部 --lume-* 变量契约 */
+:root {
+  /* 表面 / 背景 */
+  --lume-bg: #1e1e1e;
+  --lume-bg-sidebar: #181818;
+  --lume-bg-elevated: #252526;
+  --lume-bg-code: #262626;
+  --lume-bg-hover: #2a2d2e;
+  --lume-bg-active: #37373d;
+  --lume-bg-selection: #264f78;
+
+  /* 文字 */
+  --lume-text: #d4d4d4;
+  --lume-text-muted: #8a8a8a;
+  --lume-text-faint: #5a5a5a;
+  --lume-link: #4aa3ff;
+  --lume-text-code: #c9d1d9;
+
+  /* 边框 / 强调 / 状态 */
+  --lume-border: #2b2b2b;
+  --lume-border-strong: #3a3a3a;
+  --lume-accent: #4a9eff;
+  --lume-accent-hover: #6cb0ff;
+  --lume-dirty: #e0a030;
+
+  /* 编辑器专属 */
+  --lume-marker: #6a6a6a;
+  --lume-table-header-bg: #262626;
+  --lume-table-border: #3a3a3a;
+  --lume-blockquote-border: #3a3a3a;
+  --lume-hr: #3a3a3a;
+
+  /* 代码语法高亮 */
+  --lume-code-keyword: #ff7b72;
+  --lume-code-string: #a5d6ff;
+  --lume-code-comment: #8b949e;
+  --lume-code-number: #79c0ff;
+  --lume-code-function: #d2a8ff;
+  --lume-code-type: #7ee787;
+  --lume-code-tag: #7ee787;
+  --lume-code-attribute: #d2a8ff;
+  --lume-code-operator: #c9d1d9;
+
+  /* 排版 */
+  --lume-font-ui: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+  --lume-font-content: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+  --lume-font-mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+  --lume-content-width: 780px;
+  --lume-font-size: 16px;
+}
