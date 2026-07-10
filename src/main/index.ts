@@ -1,7 +1,32 @@
-import { app, shell, BrowserWindow, ipcMain } from 'electron'
+import { app, shell, BrowserWindow, ipcMain, dialog } from 'electron'
 import { join } from 'path'
+import { promises as fs } from 'fs'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
+
+interface FileNode {
+  name: string
+  path: string
+  isDir: boolean
+  children?: FileNode[]
+}
+
+async function readMarkdownTree(dir: string): Promise<FileNode[]> {
+  const entries = await fs.readdir(dir, { withFileTypes: true })
+  const nodes: FileNode[] = []
+  for (const entry of entries) {
+    if (entry.name.startsWith('.')) continue
+    const full = join(dir, entry.name)
+    if (entry.isDirectory()) {
+      const children = await readMarkdownTree(full)
+      if (children.length > 0) nodes.push({ name: entry.name, path: full, isDir: true, children })
+    } else if (entry.isFile() && entry.name.toLowerCase().endsWith('.md')) {
+      nodes.push({ name: entry.name, path: full, isDir: false })
+    }
+  }
+  nodes.sort((a, b) => Number(b.isDir) - Number(a.isDir) || a.name.localeCompare(b.name))
+  return nodes
+}
 
 function createWindow(): void {
   // Create the browser window.
@@ -49,8 +74,30 @@ app.whenReady().then(() => {
     optimizer.watchWindowShortcuts(window)
   })
 
-  // IPC test
-  ipcMain.on('ping', () => console.log('pong'))
+  ipcMain.handle('workspace:openFolder', async () => {
+    const { canceled, filePaths } = await dialog.showOpenDialog({ properties: ['openDirectory'] })
+    if (canceled || !filePaths[0]) return null
+    const root = filePaths[0]
+    const tree = await readMarkdownTree(root)
+    return { root, tree }
+  })
+
+  ipcMain.handle('file:read', async (_e, path: string) => {
+    return fs.readFile(path, 'utf-8')
+  })
+
+  ipcMain.handle('file:save', async (_e, path: string, content: string) => {
+    await fs.writeFile(path, content, 'utf-8')
+  })
+
+  ipcMain.handle('file:saveAs', async (_e, content: string) => {
+    const { canceled, filePath } = await dialog.showSaveDialog({
+      filters: [{ name: 'Markdown', extensions: ['md'] }]
+    })
+    if (canceled || !filePath) return null
+    await fs.writeFile(filePath, content, 'utf-8')
+    return filePath
+  })
 
   createWindow()
 
