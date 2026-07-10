@@ -1,4 +1,4 @@
-import { Menu, type MenuItemConstructorOptions } from 'electron'
+import { Menu, BrowserWindow, type MenuItemConstructorOptions } from 'electron'
 import type { ThemeManager } from './theme'
 
 /** 依据当前主题状态构建并设置应用菜单（勾选态即时反映） */
@@ -34,6 +34,25 @@ export async function buildAppMenu(tm: ThemeManager): Promise<void> {
   }))
 
   const template: MenuItemConstructorOptions[] = [
+    {
+      label: '文件',
+      submenu: [
+        {
+          label: '打开文件…',
+          accelerator: 'CmdOrCtrl+O',
+          click: () => {
+            BrowserWindow.getFocusedWindow()?.webContents.send('menu:openFile')
+          }
+        },
+        {
+          label: '打开文件夹…',
+          accelerator: 'CmdOrCtrl+Shift+O',
+          click: () => {
+            BrowserWindow.getFocusedWindow()?.webContents.send('menu:openFolder')
+          }
+        }
+      ]
+    },
     {
       label: '主题',
       submenu: [

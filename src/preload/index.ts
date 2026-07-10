@@ -11,7 +11,8 @@ export interface FileNode {
 const api = {
   workspace: {
     openFolder: (): Promise<{ root: string; tree: FileNode[] } | null> =>
-      ipcRenderer.invoke('workspace:openFolder')
+      ipcRenderer.invoke('workspace:openFolder'),
+    openFile: (): Promise<string | null> => ipcRenderer.invoke('workspace:openFile')
   },
   file: {
     read: (path: string): Promise<string> => ipcRenderer.invoke('file:read', path),
@@ -27,6 +28,16 @@ const api = {
     },
     confirmClose: (): void => {
       ipcRenderer.send('app:confirmClose')
+    },
+    onMenuOpenFile: (cb: () => void): (() => void) => {
+      const listener = (): void => cb()
+      ipcRenderer.on('menu:openFile', listener)
+      return () => ipcRenderer.removeListener('menu:openFile', listener)
+    },
+    onMenuOpenFolder: (cb: () => void): (() => void) => {
+      const listener = (): void => cb()
+      ipcRenderer.on('menu:openFolder', listener)
+      return () => ipcRenderer.removeListener('menu:openFolder', listener)
     }
   },
   theme: {

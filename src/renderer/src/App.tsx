@@ -6,6 +6,8 @@ import { useWorkspace } from './store/workspace'
 
 function App(): React.JSX.Element {
   const saveActive = useWorkspace((s) => s.saveActive)
+  const openFolder = useWorkspace((s) => s.openFolder)
+  const openFileByDialog = useWorkspace((s) => s.openFileByDialog)
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
@@ -21,11 +23,19 @@ function App(): React.JSX.Element {
         window.api.app.confirmClose()
       }
     })
+    const disposeMenuOpenFile = window.api.app.onMenuOpenFile(() => {
+      void openFileByDialog()
+    })
+    const disposeMenuOpenFolder = window.api.app.onMenuOpenFolder(() => {
+      void openFolder()
+    })
     return () => {
       window.removeEventListener('keydown', onKey)
       disposeQueryClose()
+      disposeMenuOpenFile()
+      disposeMenuOpenFolder()
     }
-  }, [saveActive])
+  }, [saveActive, openFolder, openFileByDialog])
 
   return (
     <div className="app-layout">

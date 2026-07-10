@@ -1,5 +1,5 @@
 import { app, shell, BrowserWindow, ipcMain, dialog } from 'electron'
-import { join, resolve, relative, isAbsolute } from 'path'
+import { join, resolve, relative, isAbsolute, dirname } from 'path'
 import { promises as fs } from 'fs'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
@@ -64,7 +64,7 @@ function createWindow(): void {
     height: 670,
     show: false,
     title: 'Lume',
-    autoHideMenuBar: true,
+    autoHideMenuBar: false,
     ...(process.platform === 'linux' ? { icon } : {}),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
@@ -126,6 +126,18 @@ app.whenReady().then(async () => {
     workspaceRoots.add(root)
     const tree = await readMarkdownTree(root)
     return { root, tree }
+  })
+
+  ipcMain.handle('workspace:openFile', async () => {
+    const { canceled, filePaths } = await dialog.showOpenDialog({
+      properties: ['openFile'],
+      filters: [{ name: 'Markdown', extensions: ['md', 'markdown'] }]
+    })
+    if (canceled || !filePaths[0]) return null
+    const filePath = filePaths[0]
+    // 允许保存该文件：把其所在目录纳入工作区根集合
+    workspaceRoots.add(dirname(filePath))
+    return filePath
   })
 
   ipcMain.handle('file:read', async (_e, path: string) => {
