@@ -391,6 +391,7 @@ git commit -m "feat: 注册 code_block/image NodeView 并与揭示协调"
 
 Run: `npm run dev` → 打开含 ```` ```js ```` 代码块的文件。
 Expected：
+
 - 代码块显示为 CodeMirror，JS 语法高亮生效。
 - 光标在代码块内可正常编辑；在首行按 ↑ / 末行按 ↓ 能跳出到上下文；空代码块按 Backspace 删除整块。
 - `Ctrl+S` 保存后，文件里代码块仍是 ```` ``` ```` 围栏且内容正确。

@@ -508,6 +508,7 @@ autolink：https://example.com
 
 Run: `npm run dev` → 打开该文件。
 Expected：
+
 - 删除线渲染为划线；光标进入时两侧显示 `~~`。
 - `https://example.com` 渲染为链接。
 - 任务列表两项分别为未勾/已勾（`- [ ]`/`- [x]` 前缀已转 checked，不显示为纯文本）。

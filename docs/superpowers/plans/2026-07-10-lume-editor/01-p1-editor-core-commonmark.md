@@ -349,6 +349,7 @@ git commit -m "feat: 组合 ProseMirror 插件"
 ## Task 8: Editor React 包装组件
 
 **Files:**
+
 - Create: `src/renderer/src/components/Editor/index.tsx`
 - Create: `src/renderer/src/components/Editor/Editor.css`
 
@@ -503,12 +504,13 @@ Expected: PASS。
 
 Run: `npm run dev`
 Expected:
+
 - 窗口显示 heading「Lume」，加粗/斜体/行内代码正确渲染，引用块、有序/无序列表、代码块可见。
 - 光标放入文本、输入内容，DevTools 控制台打印 `[serialize]` 及往返后的 Markdown。
 
 - [ ] **Step 4: 手动验证输入规则**
 
-在编辑器空行依次输入：`## ` → 变二级标题；`- ` → 变无序列表；`> ` → 变引用块；输入 `**粗**` → 自动加粗。
+在编辑器空行依次输入：`##` → 变二级标题；`-` → 变无序列表；`>` → 变引用块；输入 `**粗**` → 自动加粗。
 Expected: 各输入规则均生效。
 
 - [ ] **Step 5: 手动验证快捷键**

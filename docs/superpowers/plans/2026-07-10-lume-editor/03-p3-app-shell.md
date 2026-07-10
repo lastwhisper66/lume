@@ -212,6 +212,7 @@ git commit -m "feat: window.api 类型声明"
 ## Task 4: Zustand store
 
 **Files:**
+
 - Create: `src/renderer/src/store/workspace.ts`
 
 - [ ] **Step 1: 安装 zustand**
@@ -519,6 +520,7 @@ git commit -m "feat: 标签页栏（含 dirty 标记）"
 ## Task 8: 布局与保存快捷键
 
 **Files:**
+
 - Modify: `src/renderer/src/App.tsx`
 - Create: `src/renderer/src/App.css`
 
@@ -611,6 +613,7 @@ Expected: PASS。
 
 Run: `npm run dev`
 Expected：
+
 - 点「打开文件夹」→ 选一个含 `.md` 的目录 → 侧边树列出文件。
 - 点文件 → 新标签页打开并渲染内容。
 - 编辑 → 标签标题出现 ●。
@@ -629,6 +632,7 @@ git commit -m "feat: 三栏布局与保存快捷键"
 ## Task 9: 关闭窗口时的未保存提示
 
 **Files:**
+
 - Modify: `src/main/index.ts`
 - Modify: `src/preload/index.ts` + `src/preload/index.d.ts`
 - Modify: `src/renderer/src/App.tsx`
