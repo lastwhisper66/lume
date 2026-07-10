@@ -19,6 +19,14 @@ const api = {
       ipcRenderer.invoke('file:save', path, content),
     saveAs: (content: string): Promise<string | null> =>
       ipcRenderer.invoke('file:saveAs', content)
+  },
+  app: {
+    onQueryClose: (cb: () => void): void => {
+      ipcRenderer.on('app:queryClose', () => cb())
+    },
+    confirmClose: (): void => {
+      ipcRenderer.send('app:confirmClose')
+    }
   }
 }
 

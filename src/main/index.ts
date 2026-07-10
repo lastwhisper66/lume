@@ -46,6 +46,17 @@ function createWindow(): void {
     mainWindow.show()
   })
 
+  let allowClose = false
+  mainWindow.on('close', (e) => {
+    if (allowClose) return
+    e.preventDefault()
+    mainWindow.webContents.send('app:queryClose')
+  })
+  ipcMain.on('app:confirmClose', () => {
+    allowClose = true
+    mainWindow.close()
+  })
+
   mainWindow.webContents.setWindowOpenHandler((details) => {
     shell.openExternal(details.url)
     return { action: 'deny' }
