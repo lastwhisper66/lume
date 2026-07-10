@@ -467,11 +467,13 @@ html, body, #root { height: 100%; margin: 0; }
 
 替换整个文件内容为：
 
+> 注意：`main.css` 位于 `assets/`，样式层在 `styles/`，故用 `../styles/`（`base.css` 同目录用 `./`）。
+
 ```css
 @import './base.css';
-@import './styles/fallback.css';
-@import './styles/structure.css';
-@import './styles/editor.css';
+@import '../styles/fallback.css';
+@import '../styles/structure.css';
+@import '../styles/editor.css';
 
 body {
   min-height: 100vh;
