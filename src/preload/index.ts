@@ -29,6 +29,24 @@ const api = {
     confirmClose: (): void => {
       ipcRenderer.send('app:confirmClose')
     }
+  },
+  theme: {
+    current: (): Promise<{ name: string; css: string }> => ipcRenderer.invoke('theme:current'),
+    list: (): Promise<string[]> => ipcRenderer.invoke('theme:list'),
+    select: (name: string): void => ipcRenderer.send('theme:select', name),
+    setMode: (patch: {
+      themeMode?: 'system' | 'manual'
+      manualTheme?: string
+      dayTheme?: string
+      nightTheme?: string
+    }): void => ipcRenderer.send('theme:setMode', patch),
+    openFolder: (): void => ipcRenderer.send('theme:openFolder'),
+    rescan: (): void => ipcRenderer.send('theme:rescan'),
+    onApply: (cb: (p: { name: string; css: string }) => void): (() => void) => {
+      const listener = (_e: unknown, p: { name: string; css: string }): void => cb(p)
+      ipcRenderer.on('theme:apply', listener)
+      return () => ipcRenderer.removeListener('theme:apply', listener)
+    }
   }
 }
 
