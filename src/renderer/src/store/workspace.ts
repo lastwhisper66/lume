@@ -7,11 +7,14 @@ import { parse } from '../components/Editor/markdown/parser'
 import { serialize } from '../components/Editor/markdown/serializer'
 
 export interface WorkspaceDocument {
+  id: number
   filePath: string
   title: string
   dirty: boolean
   editorState: EditorState
 }
+
+let nextDocumentId = 1
 
 interface WorkspaceStore {
   root: string | null
@@ -22,7 +25,7 @@ interface WorkspaceStore {
   openFile: (path: string) => Promise<boolean>
   openFileByDialog: () => Promise<void>
   openDropped: (files: File[]) => Promise<void>
-  updateDocumentState: (filePath: string, state: EditorState) => void
+  updateDocumentState: (documentId: number, state: EditorState) => void
   saveActive: () => Promise<boolean>
 }
 
@@ -78,6 +81,7 @@ export const useWorkspace = create<WorkspaceStore>((set, get) => {
       if (!(await saveBeforeReplace())) return false
       set({
         document: {
+          id: nextDocumentId++,
           filePath: path,
           title: path.split(/[\\/]/).pop() ?? path,
           dirty: false,
@@ -132,10 +136,10 @@ export const useWorkspace = create<WorkspaceStore>((set, get) => {
       })
     },
 
-    updateDocumentState: (filePath, state) =>
+    updateDocumentState: (documentId, state) =>
       set((workspace) => {
         const current = workspace.document
-        if (current?.filePath !== filePath) return {}
+        if (current?.id !== documentId) return {}
         return {
           document: {
             ...current,

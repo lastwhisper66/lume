@@ -9,13 +9,13 @@ import 'prosemirror-tables/style/tables.css'
 export function Editor(): React.JSX.Element {
   const mountRef = useRef<HTMLDivElement>(null)
 
-  const filePath = useWorkspace((s) => s.document?.filePath)
+  const documentId = useWorkspace((s) => s.document?.id)
   const editorState = useWorkspace((s) => s.document?.editorState)
   const updateDocumentState = useWorkspace((s) => s.updateDocumentState)
 
   // 创建/销毁 view
   useEffect(() => {
-    if (!mountRef.current || !filePath || !editorState) return
+    if (!mountRef.current || documentId === undefined || !editorState) return
     const view = new EditorView(mountRef.current, {
       state: editorState,
       nodeViews: {
@@ -25,7 +25,7 @@ export function Editor(): React.JSX.Element {
       dispatchTransaction(tr) {
         const newState = view.state.apply(tr)
         view.updateState(newState)
-        updateDocumentState(filePath, newState)
+        updateDocumentState(documentId, newState)
       }
     })
     const unregisterEditorView = registerEditorView(view)
@@ -33,9 +33,9 @@ export function Editor(): React.JSX.Element {
       unregisterEditorView()
       view.destroy()
     }
-    // 仅依赖 filePath：切换文档时重建 view 并加载该文档的 state
+    // 仅依赖 documentId：每次装载文档时重建 view 并加载该文档的 state
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filePath])
+  }, [documentId])
 
   if (!editorState) {
     return <div className="lume-editor lume-empty">打开一个 Markdown 文件开始编辑</div>
