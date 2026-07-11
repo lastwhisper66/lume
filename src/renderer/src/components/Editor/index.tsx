@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { EditorView } from 'prosemirror-view'
 import { useWorkspace } from '../../store/workspace'
+import { registerEditorView } from '../Outline/editorScroll'
 import { CodeBlockView } from './nodeviews/codeblock'
 import { ImageView } from './nodeviews/image'
 import 'prosemirror-tables/style/tables.css'
@@ -28,7 +29,9 @@ export function Editor(): React.JSX.Element {
         if (id) updateTabState(id, newState)
       }
     })
+    const unregisterEditorView = registerEditorView(view)
     return () => {
+      unregisterEditorView()
       view.destroy()
     }
     // 仅依赖 activeTabId：切换 tab 时重建 view 并加载该 tab 的 state
