@@ -54,6 +54,21 @@
 }
 .md-marker-block { display: block; }
 
+.heading-source-input {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-family: var(--lume-font-mono);
+  line-height: inherit;
+}
+
 .lume-editor table {
   border-collapse: collapse;
   width: 100%;

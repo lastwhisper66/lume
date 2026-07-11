@@ -16,30 +16,7 @@ const insertHardBreak: Command = chainCommands(exitCode, (state, dispatch) => {
   return true
 })
 
-function isAtHeadingStart(state: Parameters<Command>[0]): boolean {
-  const { selection } = state
-  return (
-    selection.empty &&
-    selection.$from.parent.type === schema.nodes.heading &&
-    selection.$from.parentOffset === 0
-  )
-}
-
-export const lowerHeadingLevel: Command = (state, dispatch) => {
-  if (!isAtHeadingStart(state)) return false
-  const level = state.selection.$from.parent.attrs.level as number
-  const command =
-    level > 1
-      ? setBlockType(schema.nodes.heading, { level: level - 1 })
-      : setBlockType(schema.nodes.paragraph)
-  return command(state, dispatch)
-}
-
-export const keepHeadingCaretAtStart: Command = (state) => isAtHeadingStart(state)
-
 export const keymapBindings: Record<string, Command> = {
-  Backspace: lowerHeadingLevel,
-  ArrowLeft: keepHeadingCaretAtStart,
   'Mod-b': toggleStrong,
   'Mod-i': toggleEm,
   'Mod-`': toggleCode,

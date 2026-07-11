@@ -10,10 +10,6 @@ const INLINE_DELIMS: Record<string, string> = {
   strikethrough: '~~'
 }
 
-export function headingMarkerKey(level: number): string {
-  return `block-h-${level}`
-}
-
 /** 生成一个灰色、不可编辑的语法符号 widget */
 function markerWidget(text: string, extraClass = ''): (view: EditorView) => HTMLElement {
   return () => {
@@ -28,16 +24,7 @@ function markerWidget(text: string, extraClass = ''): (view: EditorView) => HTML
 /** 块级揭示：heading 的 #、blockquote 的 >、code_block 的围栏 */
 function blockDecorations(state: EditorState, decos: Decoration[]): void {
   const { $from } = state.selection
-  const parent = $from.parent
   const start = $from.start()
-
-  if (parent.type.name === 'heading') {
-    const level = parent.attrs.level as number
-    const prefix = '#'.repeat(level) + ' '
-    decos.push(
-      Decoration.widget(start, markerWidget(prefix), { side: -1, key: headingMarkerKey(level) })
-    )
-  }
 
   // blockquote：向上查祖先，命中则在当前段落前显示 '> '
   for (let d = $from.depth; d > 0; d--) {
@@ -121,7 +108,7 @@ function linkDecorations(state: EditorState, decos: Decoration[]): void {
 
   parent.forEach((child) => {
     const link = child.marks.find((m) => m.type.name === 'link')
-    const childHref = link ? ((link.attrs.href as string) || '') : null
+    const childHref = link ? (link.attrs.href as string) || '' : null
     if (link && rangeStart === null) {
       rangeStart = pos
       href = childHref as string
