@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { nearestTextOffset, parseHeadingSource } from './headingSource'
+import { parseHeadingSource, sourceCaretOffset } from './headingSource'
 
 describe('parseHeadingSource', () => {
   it.each([
@@ -15,17 +15,12 @@ describe('parseHeadingSource', () => {
   })
 })
 
-describe('nearestTextOffset', () => {
-  const measure = (text: string): number => text.length * 10
+describe('sourceCaretOffset', () => {
+  it('places the source caret after the heading prefix at the clicked text offset', () => {
+    expect(sourceCaretOffset(4, 5, 20)).toBe(9)
+  })
 
-  it.each([
-    [-5, 0],
-    [0, 0],
-    [4, 0],
-    [6, 1],
-    [25, 3],
-    [100, 4]
-  ])('maps x=%s to offset %s', (x, offset) => {
-    expect(nearestTextOffset('####', x, measure)).toBe(offset)
+  it('clamps the caret to the available source', () => {
+    expect(sourceCaretOffset(4, 20, 12)).toBe(12)
   })
 })

@@ -15,18 +15,28 @@ export function parseHeadingSource(source: string): ParsedHeadingSource {
   return { level: match[1].length, text: match[2] }
 }
 
-export function nearestTextOffset(
-  text: string,
-  x: number,
-  measure: (prefix: string) => number
+export function sourceCaretOffset(
+  prefixLength: number,
+  renderedOffset: number,
+  sourceLength: number
 ): number {
-  if (x <= 0) return 0
-  for (let offset = 1; offset <= text.length; offset++) {
-    const previousWidth = measure(text.slice(0, offset - 1))
-    const nextWidth = measure(text.slice(0, offset))
-    if (x < (previousWidth + nextWidth) / 2) return offset - 1
+  return Math.min(prefixLength + renderedOffset, sourceLength)
+}
+
+function renderedTextOffsetAtPoint(root: HTMLElement, x: number, y: number): number {
+  const documentWithFallback = document as Document & {
+    caretRangeFromPoint?: (x: number, y: number) => Range | null
   }
-  return text.length
+  const caretPosition = document.caretPositionFromPoint?.(x, y)
+  const caretRange = caretPosition ? null : documentWithFallback.caretRangeFromPoint?.(x, y)
+  const node = caretPosition?.offsetNode ?? caretRange?.startContainer
+  const offset = caretPosition?.offset ?? caretRange?.startOffset
+  if (!node || offset === undefined || !root.contains(node)) return root.textContent?.length ?? 0
+
+  const range = document.createRange()
+  range.setStart(root, 0)
+  range.setEnd(node, offset)
+  return range.toString().length
 }
 
 export class HeadingSourceView implements NodeView {
@@ -69,6 +79,7 @@ export class HeadingSourceView implements NodeView {
 
   private startEditing = (event: MouseEvent): void => {
     if (this.input) return
+    const renderedOffset = renderedTextOffsetAtPoint(this.contentDOM, event.clientX, event.clientY)
     const input = document.createElement('input')
     input.className = 'heading-source-input'
     input.type = 'text'
@@ -80,20 +91,9 @@ export class HeadingSourceView implements NodeView {
     this.contentDOM.hidden = true
     this.dom.appendChild(input)
     input.focus()
-    const style = getComputedStyle(input)
-    const canvas = document.createElement('canvas')
-    const context = canvas.getContext('2d')
-    if (context) {
-      context.font = style.font
-      const rect = input.getBoundingClientRect()
-      const contentX = event.clientX - rect.left - Number.parseFloat(style.paddingLeft || '0')
-      const offset = nearestTextOffset(
-        input.value,
-        contentX,
-        (text) => context.measureText(text).width
-      )
-      input.setSelectionRange(offset, offset)
-    }
+    const prefixLength = (this.node.attrs.level as number) + 1
+    const offset = sourceCaretOffset(prefixLength, renderedOffset, input.value.length)
+    input.setSelectionRange(offset, offset)
   }
 
   private handleKeyDown = (event: KeyboardEvent): void => {
