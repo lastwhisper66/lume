@@ -1,5 +1,6 @@
 /* 主题注入前的兜底变量（= 浅色）。运行时注入的 <style id="lume-theme"> 会以更后的源顺序覆盖此处。 */
 :root {
+  --lume-color-scheme: light;
   --lume-bg: #ffffff;
   --lume-bg-sidebar: #f7f8fa;
   --lume-bg-elevated: #ffffff;
@@ -14,6 +15,9 @@
   --lume-text-code: #24292e;
   --lume-border: #ececec;
   --lume-border-strong: #d8d8d8;
+  --lume-scrollbar-track: transparent;
+  --lume-scrollbar-thumb: color-mix(in srgb, var(--lume-text) 28%, var(--lume-bg));
+  --lume-scrollbar-thumb-hover: color-mix(in srgb, var(--lume-text) 42%, var(--lume-bg));
   --lume-accent: #3b82f6;
   --lume-accent-hover: #2f74e6;
   --lume-dirty: #e08a00;
@@ -31,9 +35,12 @@
   --lume-code-tag: #22863a;
   --lume-code-attribute: #6f42c1;
   --lume-code-operator: #24292e;
-  --lume-font-ui: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
-  --lume-font-content: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
-  --lume-font-mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+  --lume-font-ui:
+    Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+  --lume-font-content:
+    Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+  --lume-font-mono:
+    ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
   --lume-content-width: 780px;
   --lume-font-size: 16px;
 }

@@ -1,5 +1,7 @@
 /* Lume 内置浅色主题 —— 定义全部 --lume-* 变量契约 */
 :root {
+  --lume-color-scheme: light;
+
   /* 表面 / 背景 */
   --lume-bg: #ffffff;
   --lume-bg-sidebar: #f7f8fa;
@@ -19,6 +21,9 @@
   /* 边框 / 强调 / 状态 */
   --lume-border: #ececec;
   --lume-border-strong: #d8d8d8;
+  --lume-scrollbar-track: transparent;
+  --lume-scrollbar-thumb: #c4c7cc;
+  --lume-scrollbar-thumb-hover: #aeb3b9;
   --lume-accent: #3b82f6;
   --lume-accent-hover: #2f74e6;
   --lume-dirty: #e08a00;
@@ -42,9 +47,12 @@
   --lume-code-operator: #24292e;
 
   /* 排版 */
-  --lume-font-ui: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
-  --lume-font-content: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
-  --lume-font-mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+  --lume-font-ui:
+    Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+  --lume-font-content:
+    Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+  --lume-font-mono:
+    ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
   --lume-content-width: 780px;
   --lume-font-size: 16px;
 }
