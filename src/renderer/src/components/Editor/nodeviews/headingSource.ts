@@ -33,8 +33,9 @@ export class HeadingSourceView implements NodeView {
 
   update(node: PMNode): boolean {
     if (node.type !== this.node.type) return false
+    this.finishEditing()
     this.node = node
-    if (!this.input && this.dom.tagName !== `H${node.attrs.level}`) return false
+    if (this.dom.tagName !== `H${node.attrs.level}`) return false
     return true
   }
 
@@ -47,6 +48,7 @@ export class HeadingSourceView implements NodeView {
   }
 
   destroy(): void {
+    this.finishEditing()
     this.dom.removeEventListener('click', this.startEditing)
   }
 
@@ -78,12 +80,17 @@ export class HeadingSourceView implements NodeView {
   }
 
   private cancel(): void {
+    this.finishEditing()
+    this.view.focus()
+  }
+
+  private finishEditing(): void {
     if (!this.input) return
     this.input.removeEventListener('blur', this.commit)
+    this.input.removeEventListener('keydown', this.handleKeyDown)
     this.input.remove()
     this.input = null
     this.contentDOM.hidden = false
-    this.view.focus()
   }
 
   private commit = (): void => {
