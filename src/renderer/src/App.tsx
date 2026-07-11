@@ -3,6 +3,7 @@ import Editor from './components/Editor'
 import DocumentHeader from './components/Navigation/DocumentHeader'
 import StatusBar from './components/StatusBar/StatusBar'
 import Sidebar from './components/Workspace/Sidebar'
+import { useAppSettings } from './store/settings'
 import { useWorkspace } from './store/workspace'
 
 function App(): React.JSX.Element {
@@ -10,10 +11,16 @@ function App(): React.JSX.Element {
   const openFolder = useWorkspace((s) => s.openFolder)
   const openFileByDialog = useWorkspace((s) => s.openFileByDialog)
   const openDropped = useWorkspace((s) => s.openDropped)
+  const hydrateSettings = useAppSettings((s) => s.hydrate)
+  const sidebarVisible = useAppSettings((s) => s.snapshot?.sidebarVisible ?? false)
+  const setSidebarVisible = useAppSettings((s) => s.setSidebarVisible)
 
   const [dragging, setDragging] = useState(false)
-  const [sidebarVisible, setSidebarVisible] = useState(false)
   const dragDepth = useRef(0)
+
+  useEffect(() => {
+    void hydrateSettings()
+  }, [hydrateSettings])
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
@@ -90,7 +97,7 @@ function App(): React.JSX.Element {
         <Editor />
         <StatusBar
           sidebarVisible={sidebarVisible}
-          onToggleSidebar={() => setSidebarVisible((visible) => !visible)}
+          onToggleSidebar={() => void setSidebarVisible(!sidebarVisible)}
         />
       </div>
       {dragging && (
