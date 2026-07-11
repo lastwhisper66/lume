@@ -8,9 +8,7 @@ interface StatusBarProps {
 }
 
 export function StatusBar({ sidebarVisible, onToggleSidebar }: StatusBarProps): React.JSX.Element {
-  const doc = useWorkspace(
-    (state) => state.tabs.find((tab) => tab.id === state.activeTabId)?.editorState.doc
-  )
+  const doc = useWorkspace((state) => state.document?.editorState.doc)
   const words = useMemo(() => countWords(doc), [doc])
   const sidebarLabel = sidebarVisible ? '隐藏侧边栏' : '显示侧边栏'
 

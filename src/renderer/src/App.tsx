@@ -28,7 +28,7 @@ function App(): React.JSX.Element {
     window.addEventListener('dragover', prevent)
     window.addEventListener('drop', prevent)
     const disposeQueryClose = window.api.app.onQueryClose(() => {
-      const hasDirty = useWorkspace.getState().tabs.some((t) => t.dirty)
+      const hasDirty = useWorkspace.getState().document?.dirty === true
       if (!hasDirty || window.confirm('有未保存的文件，仍要退出吗？')) {
         window.api.app.confirmClose()
       }

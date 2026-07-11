@@ -4,9 +4,7 @@ import { extractOutline } from './documentInfo'
 import { scrollEditorTo } from './editorScroll'
 
 export function Outline(): React.JSX.Element {
-  const doc = useWorkspace(
-    (state) => state.tabs.find((tab) => tab.id === state.activeTabId)?.editorState.doc
-  )
+  const doc = useWorkspace((state) => state.document?.editorState.doc)
   const entries = useMemo(() => extractOutline(doc), [doc])
 
   if (entries.length === 0) {
