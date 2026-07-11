@@ -11,7 +11,7 @@ body,
 .app-layout {
   display: grid;
   grid-template-columns: 1fr;
-  grid-template-rows: 38px minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
   height: 100vh;
   background: var(--lume-bg);
   color: var(--lume-text);
@@ -25,13 +25,13 @@ body,
 /* ---------- Sidebar ---------- */
 .sidebar {
   grid-column: 1;
-  grid-row: 2;
+  grid-row: 1;
   display: flex;
   flex-direction: column;
   border-right: 1px solid var(--lume-border);
   background: var(--lume-bg-sidebar);
   overflow: hidden;
-  padding: 0;
+  padding: 38px 0 0;
 }
 .sidebar-hidden {
   display: none;
@@ -106,13 +106,14 @@ body,
 /* ---------- Main pane ---------- */
 .main-pane {
   grid-column: 1;
-  grid-row: 2;
+  grid-row: 1;
   display: flex;
   flex-direction: column;
   min-width: 0;
   min-height: 0;
   overflow: hidden;
   background: var(--lume-bg);
+  padding-top: 38px;
 }
 .app-layout.sidebar-visible .main-pane {
   grid-column: 2;
@@ -171,26 +172,25 @@ body,
 
 /* ---------- Document header ---------- */
 .document-header {
-  grid-column: 1 / -1;
-  grid-row: 1;
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex: 0 0 38px;
-  min-width: 0;
+  position: absolute;
+  inset: 0 0 auto;
+  z-index: 100;
   height: 38px;
-  padding: 0 56px;
-  border-bottom: 1px solid var(--lume-border);
   background: var(--lume-bg-sidebar);
+  -webkit-app-region: drag;
+  user-select: none;
 }
 .document-title {
-  display: block;
-  max-width: min(60vw, 560px);
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  max-width: min(60vw, calc(100vw - 300px));
   overflow: hidden;
   color: var(--lume-text-muted);
   font-size: 13px;
+  line-height: 20px;
   text-overflow: ellipsis;
+  transform: translate(-50%, -50%);
   white-space: nowrap;
 }
 

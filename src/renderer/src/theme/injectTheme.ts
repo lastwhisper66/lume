@@ -11,6 +11,14 @@ export function initTheme(): void {
   }
   const apply = (p: { name: string; css: string }): void => {
     styleEl!.textContent = p.css
+    requestAnimationFrame(() => {
+      const styles = getComputedStyle(document.documentElement)
+      const color =
+        styles.getPropertyValue('--lume-bg-sidebar').trim() ||
+        styles.getPropertyValue('--lume-bg').trim()
+      const symbolColor = styles.getPropertyValue('--lume-text').trim()
+      if (color && symbolColor) window.api.window.setTitleBarOverlay({ color, symbolColor })
+    })
   }
   void window.api.theme.current().then(apply)
   window.api.theme.onApply(apply)
