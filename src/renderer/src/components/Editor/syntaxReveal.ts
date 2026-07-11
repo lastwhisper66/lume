@@ -10,6 +10,10 @@ const INLINE_DELIMS: Record<string, string> = {
   strikethrough: '~~'
 }
 
+export function headingMarkerKey(level: number): string {
+  return `block-h-${level}`
+}
+
 /** 生成一个灰色、不可编辑的语法符号 widget */
 function markerWidget(text: string, extraClass = ''): (view: EditorView) => HTMLElement {
   return () => {
@@ -28,8 +32,11 @@ function blockDecorations(state: EditorState, decos: Decoration[]): void {
   const start = $from.start()
 
   if (parent.type.name === 'heading') {
-    const prefix = '#'.repeat(parent.attrs.level as number) + ' '
-    decos.push(Decoration.widget(start, markerWidget(prefix), { side: -1, key: 'block-h' }))
+    const level = parent.attrs.level as number
+    const prefix = '#'.repeat(level) + ' '
+    decos.push(
+      Decoration.widget(start, markerWidget(prefix), { side: -1, key: headingMarkerKey(level) })
+    )
   }
 
   // blockquote：向上查祖先，命中则在当前段落前显示 '> '
