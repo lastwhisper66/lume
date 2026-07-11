@@ -184,7 +184,7 @@ body,
   position: absolute;
   top: 50%;
   left: 50%;
-  max-width: min(60vw, calc(100vw - 300px));
+  max-width: min(60vw, max(0px, calc(100vw - 300px)));
   overflow: hidden;
   color: var(--lume-text-muted);
   font-size: 13px;
