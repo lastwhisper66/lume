@@ -47,9 +47,7 @@ export class SpellcheckController {
     private readonly session: SpellcheckSession,
     private readonly preferredLocales: string[]
   ) {
-    this.available = [...session.availableSpellCheckerLanguages].sort((a, b) =>
-      a.localeCompare(b)
-    )
+    this.available = [...session.availableSpellCheckerLanguages].sort((a, b) => a.localeCompare(b))
   }
 
   private fallbackLanguage(): string | null {
