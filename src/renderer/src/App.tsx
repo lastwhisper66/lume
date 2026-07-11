@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import Editor from './components/Editor'
+import DocumentHeader from './components/Navigation/DocumentHeader'
 import StatusBar from './components/StatusBar/StatusBar'
-import TabBar from './components/Tabs/TabBar'
 import Sidebar from './components/Workspace/Sidebar'
 import { useWorkspace } from './store/workspace'
 
@@ -86,7 +86,7 @@ function App(): React.JSX.Element {
         <Sidebar />
       </div>
       <div className="main-pane">
-        <TabBar />
+        <DocumentHeader />
         <Editor />
         <StatusBar
           sidebarVisible={sidebarVisible}

@@ -162,58 +162,27 @@ body,
   opacity: 1;
 }
 
-/* ---------- Tab bar ---------- */
-.tab-bar {
+/* ---------- Document header ---------- */
+.document-header {
+  position: relative;
   display: flex;
-  align-items: stretch;
-  height: 38px;
-  border-bottom: 1px solid var(--lume-border);
-  background: var(--lume-bg-sidebar);
-  overflow-x: auto;
-}
-.tab {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  max-width: 200px;
-  padding: 0 12px;
-  border-right: 1px solid var(--lume-border);
-  cursor: pointer;
-  font-size: 13px;
-  color: var(--lume-text-muted);
-  transition:
-    background 0.15s ease,
-    color 0.15s ease;
-}
-.tab:hover {
-  background: var(--lume-bg-hover);
-}
-.tab.active {
-  background: var(--lume-bg);
-  color: var(--lume-text);
-  box-shadow: inset 0 -2px 0 var(--lume-accent);
-}
-.tab-title {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.tab-dirty {
-  color: var(--lume-dirty);
-}
-.tab-close {
-  display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 16px;
-  height: 16px;
-  border-radius: 4px;
-  color: var(--lume-text-muted);
-  line-height: 1;
+  flex: 0 0 38px;
+  min-width: 0;
+  height: 38px;
+  padding: 0 56px;
+  border-bottom: 1px solid var(--lume-border);
+  background: var(--lume-bg-sidebar);
 }
-.tab-close:hover {
-  background: var(--lume-bg-active);
-  color: var(--lume-text);
+.document-title {
+  display: block;
+  max-width: min(60vw, 560px);
+  overflow: hidden;
+  color: var(--lume-text-muted);
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* ---------- Status bar ---------- */
