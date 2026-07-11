@@ -9,7 +9,8 @@ export interface FileNode {
 }
 
 export interface DroppedResult {
-  folder: { root: string; tree: FileNode[] } | null
+  root: string | null
+  tree: FileNode[]
   files: string[]
 }
 

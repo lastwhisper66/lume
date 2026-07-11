@@ -1,5 +1,5 @@
 import { app, shell, BrowserWindow, ipcMain, dialog } from 'electron'
-import { join, resolve, relative, isAbsolute, dirname } from 'path'
+import { join, resolve, relative, isAbsolute, dirname, basename } from 'path'
 import { promises as fs } from 'fs'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
@@ -23,12 +23,35 @@ async function readMarkdownTree(dir: string): Promise<FileNode[]> {
     if (entry.isDirectory()) {
       const children = await readMarkdownTree(full)
       if (children.length > 0) nodes.push({ name: entry.name, path: full, isDir: true, children })
-    } else if (entry.isFile() && entry.name.toLowerCase().endsWith('.md')) {
+    } else if (entry.isFile() && /\.(md|markdown)$/i.test(entry.name)) {
       nodes.push({ name: entry.name, path: full, isDir: false })
     }
   }
   nodes.sort((a, b) => Number(b.isDir) - Number(a.isDir) || a.name.localeCompare(b.name))
   return nodes
+}
+
+function collectMarkdownPaths(nodes: FileNode[]): string[] {
+  return nodes.flatMap((node) =>
+    node.isDir ? collectMarkdownPaths(node.children ?? []) : [node.path]
+  )
+}
+
+function dedupeMarkdownTree(nodes: FileNode[], seenPaths: Set<string>): FileNode[] {
+  const deduped: FileNode[] = []
+  for (const node of nodes) {
+    if (node.isDir) {
+      const children = dedupeMarkdownTree(node.children ?? [], seenPaths)
+      if (children.length > 0) deduped.push({ ...node, children })
+      continue
+    }
+
+    const resolved = resolve(node.path)
+    if (seenPaths.has(resolved)) continue
+    seenPaths.add(resolved)
+    deduped.push({ ...node, path: resolved })
+  }
+  return deduped
 }
 
 // 已打开的工作区根目录集合：切换文件夹不会让旧标签的文件因校验失败而无法保存
@@ -141,25 +164,38 @@ app.whenReady().then(async () => {
   })
 
   ipcMain.handle('workspace:openDropped', async (_e, paths: string[]) => {
-    let folder: { root: string; tree: FileNode[] } | null = null
+    const tree: FileNode[] = []
     const files: string[] = []
+    const displayedPaths = new Set<string>()
+    const directoryRoots: string[] = []
     for (const p of paths) {
-      const stat = await fs.stat(p).catch(() => null)
+      const resolved = resolve(p)
+      const stat = await fs.stat(resolved).catch(() => null)
       if (!stat) continue
       if (stat.isDirectory()) {
-        // 仅第一个文件夹被当作工作区打开（替换当前工作区）
-        if (!folder) {
-          const root = resolve(p)
-          workspaceRoots.add(root)
-          folder = { root, tree: await readMarkdownTree(root) }
-        }
-      } else if (stat.isFile() && /\.(md|markdown)$/i.test(p)) {
-        const resolved = resolve(p)
+        workspaceRoots.add(resolved)
+        directoryRoots.push(resolved)
+        const children = dedupeMarkdownTree(await readMarkdownTree(resolved), displayedPaths)
+        tree.push({
+          name: basename(resolved) || resolved,
+          path: resolved,
+          isDir: true,
+          children
+        })
+        files.push(...collectMarkdownPaths(children))
+      } else if (stat.isFile() && /\.(md|markdown)$/i.test(resolved)) {
         workspaceRoots.add(dirname(resolved))
+        if (displayedPaths.has(resolved)) continue
+        displayedPaths.add(resolved)
+        tree.push({ name: basename(resolved), path: resolved, isDir: false })
         files.push(resolved)
       }
     }
-    return { folder, files }
+    return {
+      root: directoryRoots.length === 1 ? directoryRoots[0] : null,
+      tree,
+      files
+    }
   })
 
   ipcMain.handle('file:read', async (_e, path: string) => {
