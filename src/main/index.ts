@@ -6,6 +6,7 @@ import icon from '../../resources/icon.png?asset'
 import { ThemeManager } from './theme'
 import type { ThemePayload } from './theme'
 import { buildAppMenu } from './menu'
+import { SettingsStore } from './settings'
 
 const TITLE_BAR_HEIGHT = 38
 const LIGHT_TITLE_BAR = { color: '#f7f8fa', symbolColor: '#2b2b2b' }
@@ -138,7 +139,8 @@ function assertInWorkspace(p: string): string {
   throw new Error('路径越界，拒绝访问')
 }
 
-const themeManager = new ThemeManager()
+const settingsStore = new SettingsStore(join(app.getPath('userData'), 'settings.json'))
+const themeManager = new ThemeManager(settingsStore)
 
 /** 把当前有效主题推给所有窗口，并重建菜单勾选 */
 async function pushTheme(): Promise<void> {
@@ -212,6 +214,7 @@ app.whenReady().then(async () => {
   // Set app user model id for windows
   electronApp.setAppUserModelId('com.lume.app')
 
+  await settingsStore.init()
   await themeManager.init(() => {
     void pushTheme()
   })

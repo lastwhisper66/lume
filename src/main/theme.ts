@@ -3,33 +3,23 @@ import { join } from 'path'
 import { promises as fs } from 'fs'
 import lightCss from '../../resources/themes/light.css?raw'
 import darkCss from '../../resources/themes/dark.css?raw'
+import type { ThemeSettings } from '../shared/settings'
+import type { SettingsStore } from './settings'
 
-export interface ThemeSettings {
-  themeMode: 'system' | 'manual'
-  manualTheme: string
-  dayTheme: string
-  nightTheme: string
-}
+export type { ThemeSettings } from '../shared/settings'
 
 export interface ThemePayload {
   name: string
   css: string
 }
 
-const DEFAULT_SETTINGS: ThemeSettings = {
-  themeMode: 'system',
-  manualTheme: 'light',
-  dayTheme: 'light',
-  nightTheme: 'dark'
-}
-
 const BUILTIN: Record<string, string> = { light: lightCss, dark: darkCss }
 
 export class ThemeManager {
   private themesDir = join(app.getPath('userData'), 'themes')
-  private settingsFile = join(app.getPath('userData'), 'settings.json')
-  private settings: ThemeSettings = { ...DEFAULT_SETTINGS }
   private onChange: () => void = () => {}
+
+  constructor(private readonly settingsStore: SettingsStore) {}
 
   /** 初始化：建主题夹、拷内置主题（缺失才拷）、读 settings、挂 nativeTheme 监听 */
   async init(onChange: () => void): Promise<void> {
@@ -43,32 +33,20 @@ export class ThemeManager {
         await fs.writeFile(p, css, 'utf-8')
       }
     }
-    this.settings = await this.readSettings()
     nativeTheme.on('updated', () => {
-      if (this.settings.themeMode === 'system') this.onChange()
+      if (this.getState().themeMode === 'system') this.onChange()
     })
   }
 
-  private async readSettings(): Promise<ThemeSettings> {
-    try {
-      const raw = await fs.readFile(this.settingsFile, 'utf-8')
-      return { ...DEFAULT_SETTINGS, ...(JSON.parse(raw) as Partial<ThemeSettings>) }
-    } catch {
-      return { ...DEFAULT_SETTINGS }
-    }
-  }
-
-  private async writeSettings(): Promise<void> {
-    await fs.writeFile(this.settingsFile, JSON.stringify(this.settings, null, 2), 'utf-8')
-  }
-
   getState(): ThemeSettings {
-    return this.settings
+    const { themeMode, manualTheme, dayTheme, nightTheme } = this.settingsStore.getState()
+    return { themeMode, manualTheme, dayTheme, nightTheme }
   }
 
   private effectiveName(): string {
-    if (this.settings.themeMode === 'manual') return this.settings.manualTheme
-    return nativeTheme.shouldUseDarkColors ? this.settings.nightTheme : this.settings.dayTheme
+    const settings = this.getState()
+    if (settings.themeMode === 'manual') return settings.manualTheme
+    return nativeTheme.shouldUseDarkColors ? settings.nightTheme : settings.dayTheme
   }
 
   /** 只允许简单文件名，防路径越界 */
@@ -101,15 +79,12 @@ export class ThemeManager {
   }
 
   async select(name: string): Promise<void> {
-    this.settings.themeMode = 'manual'
-    this.settings.manualTheme = name
-    await this.writeSettings()
+    await this.settingsStore.update({ themeMode: 'manual', manualTheme: name })
     this.onChange()
   }
 
   async setMode(patch: Partial<ThemeSettings>): Promise<void> {
-    this.settings = { ...this.settings, ...patch }
-    await this.writeSettings()
+    await this.settingsStore.update(patch)
     this.onChange()
   }
 
