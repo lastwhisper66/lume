@@ -15,7 +15,7 @@ export function Editor(): React.JSX.Element {
 
   // 创建/销毁 view
   useEffect(() => {
-    if (!mountRef.current || !editorState) return
+    if (!mountRef.current || !filePath || !editorState) return
     const view = new EditorView(mountRef.current, {
       state: editorState,
       nodeViews: {
@@ -25,7 +25,7 @@ export function Editor(): React.JSX.Element {
       dispatchTransaction(tr) {
         const newState = view.state.apply(tr)
         view.updateState(newState)
-        updateDocumentState(newState)
+        updateDocumentState(filePath, newState)
       }
     })
     const unregisterEditorView = registerEditorView(view)

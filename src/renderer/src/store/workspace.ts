@@ -22,7 +22,7 @@ interface WorkspaceStore {
   openFile: (path: string) => Promise<boolean>
   openFileByDialog: () => Promise<void>
   openDropped: (files: File[]) => Promise<void>
-  updateDocumentState: (state: EditorState) => void
+  updateDocumentState: (filePath: string, state: EditorState) => void
   saveActive: () => Promise<boolean>
 }
 
@@ -132,10 +132,10 @@ export const useWorkspace = create<WorkspaceStore>((set, get) => {
       })
     },
 
-    updateDocumentState: (state) =>
+    updateDocumentState: (filePath, state) =>
       set((workspace) => {
         const current = workspace.document
-        if (!current) return {}
+        if (current?.filePath !== filePath) return {}
         return {
           document: {
             ...current,
