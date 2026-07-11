@@ -54,7 +54,7 @@ function dedupeMarkdownTree(nodes: FileNode[], seenPaths: Set<string>): FileNode
   return deduped
 }
 
-// 已打开的工作区根目录集合：切换文件夹不会让旧标签的文件因校验失败而无法保存
+// 已打开的工作区根目录集合：切换文件夹后，原工作区中的当前文档仍可通过路径校验并自动保存
 const workspaceRoots = new Set<string>()
 
 function assertInWorkspace(p: string): string {
@@ -198,10 +198,7 @@ app.whenReady().then(async () => {
     }
     const naturalRoot = directoryRoots.length === 1 ? directoryRoots[0] : null
     const onlyNaturalRoot =
-      naturalRoot !== null &&
-      tree.length === 1 &&
-      tree[0].isDir &&
-      tree[0].path === naturalRoot
+      naturalRoot !== null && tree.length === 1 && tree[0].isDir && tree[0].path === naturalRoot
     return {
       root: onlyNaturalRoot ? naturalRoot : null,
       tree: onlyNaturalRoot ? (tree[0].children ?? []) : tree,

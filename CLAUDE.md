@@ -26,21 +26,21 @@ No test runner is configured yet.
 
 ## Electron-vite 三进程架构
 
-| 进程 | 入口 | tsconfig |
-|------|------|----------|
-| Main（Node.js） | `src/main/index.ts` | `tsconfig.node.json` |
-| Preload | `src/preload/index.ts` | `tsconfig.node.json` |
-| Renderer（React） | `src/renderer/src/main.tsx` | `tsconfig.web.json` |
+| 进程              | 入口                        | tsconfig             |
+| ----------------- | --------------------------- | -------------------- |
+| Main（Node.js）   | `src/main/index.ts`         | `tsconfig.node.json` |
+| Preload           | `src/preload/index.ts`      | `tsconfig.node.json` |
+| Renderer（React） | `src/renderer/src/main.tsx` | `tsconfig.web.json`  |
 
 **IPC 约定**：Preload 通过 `contextBridge` 将 `window.electron`（来自 `@electron-toolkit/preload`）和 `window.api`（自定义）暴露给 Renderer。文件读写等 Node.js 能力必须在 `src/main/index.ts` 用 `ipcMain.handle` 注册，在 `src/preload/index.ts` 里用 `contextBridge.exposeInMainWorld` 暴露，类型声明写在 `src/preload/index.d.ts`。
 
 ## 技术选型
 
-| 层 | 选型 | 说明 |
-|----|------|------|
-| 编辑器框架 | **ProseMirror** | 提供 Schema / Transaction / NodeView 等精确的文档模型 |
+| 层                   | 选型                     | 说明                                                                    |
+| -------------------- | ------------------------ | ----------------------------------------------------------------------- |
+| 编辑器框架           | **ProseMirror**          | 提供 Schema / Transaction / NodeView 等精确的文档模型                   |
 | Markdown 解析/序列化 | **prosemirror-markdown** | 官方桥接库，内置 `defaultMarkdownParser` 和 `defaultMarkdownSerializer` |
-| UI 框架 | React 19 | 编辑器以 React 组件包装，UI 部分（工具栏、侧边栏等）用 React |
+| UI 框架              | React 19                 | 编辑器以 React 组件包装，UI 部分（工具栏、侧边栏等）用 React            |
 
 > ⚠️ `prosemirror-markdown` 底层用 **markdown-it**（不是 remark/unified）解析 Markdown。扩展语法（如 GFM）时，需要在 markdown-it 实例、Parser、Serializer 三处同步扩展，详见下方「GFM 支持」。
 
@@ -51,13 +51,15 @@ No test runner is configured yet.
 - **ProseMirror 内核**：prosemirror-state、prosemirror-view、prosemirror-model、prosemirror-markdown、prosemirror-commands、prosemirror-keymap、prosemirror-history、prosemirror-inputrules、prosemirror-schema-list
 - **GFM 扩展**：prosemirror-tables、markdown-it-task-lists（markdown-it 已是 prosemirror-markdown 的传递依赖；表格 / 删除线内置于其 `default` 预设）
 - **代码块高亮**：CodeMirror 6 及语言包（用 `@codemirror/language-data` 懒加载语言）
-- **渲染进程状态**：zustand（管理工作区 / 标签页 / dirty）
+- **渲染进程状态**：zustand（管理工作区 / 单个 `WorkspaceDocument` / dirty）
 
 ## 编辑器架构设计
 
 ### 应用形态
 
-多文档编辑器：打开一个文件夹作为工作区 → 侧边文件树 → 多标签页；每个标签持有独立的 `{ filePath, EditorState, dirty }`，切换标签即切换 EditorState。dirty 标签在标题显示 ●；关闭标签 / 窗口且存在未保存改动时，弹「保存 / 放弃 / 取消」。
+单文档编辑器：打开一个文件夹作为工作区 → 侧边文件树 → 单个当前文档。Zustand store 只持有一个 `WorkspaceDocument | null`，结构为 `{ id, filePath, title, editorState, dirty }`；`Navigation/DocumentHeader` 显示当前文件名，不再使用 `Tabs/TabBar`。
+
+打开另一个文件前，store 会先自动保存 dirty 的当前文档；只有保存成功后才读取并替换为新文档。自动保存失败时保留当前文档并中止切换。多个打开请求通过队列串行处理，避免文件读取与自动保存互相覆盖。窗口关闭时若当前文档 dirty，仍需用户确认。
 
 ### 数据流
 
@@ -67,7 +69,9 @@ No test runner is configured yet.
    ▼
 Markdown 字符串  ──  parser.parse()  ──▶  PM Document（Node 树）
                                               │
-                                    EditorView 渲染（每标签一份 EditorState）
+                              WorkspaceDocument.editorState
+                                              │
+                                      EditorView 渲染
                                               │
                                用户编辑 → Transaction → 新 PM Document（标记 dirty）
                                               │
@@ -76,6 +80,8 @@ Markdown 字符串  ──  parser.parse()  ──▶  PM Document（Node 树）
                                      Markdown 字符串
                                               │ (IPC file:save)
                                            .md 文件
+
+打开其他文件：dirty 当前文档 ── 自动 `file:save` ──▶ `file:read` 新文件 ──▶ 替换单个 WorkspaceDocument
 ```
 
 PM Document 是唯一数据源。Markdown 字符串仅在读文件 / 存文件两端出现。
@@ -84,10 +90,10 @@ PM Document 是唯一数据源。Markdown 字符串仅在读文件 / 存文件�
 
 ```
 src/renderer/src/
-  store/                      # Zustand：workspace / tabs / dirty 状态
+  store/workspace.ts          # Zustand：工作区树 + 单个 WorkspaceDocument + dirty / 自动保存
   components/
     Editor/
-      index.tsx               # EditorView 包装，随激活标签切换 EditorState
+      index.tsx               # EditorView 包装，文档 id 变化时重建并装载其 EditorState
       schema/base.ts          # 克隆 prosemirror-markdown 的 schema
       schema/gfm.ts           # strikethrough / tables / task list 扩展
       markdown/parser.ts      # markdown-it 实例 + MarkdownParser
@@ -98,16 +104,21 @@ src/renderer/src/
       commands.ts             # 加粗 / 斜体等命令（keymap 与工具栏复用）
       plugins.ts              # 组合所有 PM 插件
       nodeviews/codeblock.ts  # 内嵌 CodeMirror 6
-      nodeviews/table.ts      # prosemirror-tables 交互
       nodeviews/image.ts      # 图片渲染 + 点击编辑 src
-      Editor.css
-    Workspace/FileTree.tsx    # 侧边文件树
-    Tabs/TabBar.tsx           # 标签页栏（含 dirty ●）
-  App.tsx                     # 侧边栏 + 标签栏 + Editor 布局
+    Navigation/
+      DocumentHeader.tsx      # 当前单文档标题
+    Workspace/
+      Sidebar.tsx             # 侧边栏内部的“文件 / 大纲”页面切换
+      FileTree.tsx            # 侧边文件树
+    Outline/                  # 当前文档大纲与滚动定位
+    StatusBar/StatusBar.tsx   # 侧边栏显隐控制与状态栏
+  App.tsx                     # DocumentHeader + Sidebar + Editor + StatusBar 布局
 src/main/index.ts             # IPC handlers（workspace / 文件读写）
 src/preload/index.ts          # contextBridge 暴露 window.api.*
 src/preload/index.d.ts        # window.api 的类型声明
 ```
+
+`Sidebar.tsx` / `structure.css` 中的 `sidebar-tabs`、`sidebar-tab` 仅指侧边栏内部“文件 / 大纲”的页面切换，不是文档标签页。编辑器表格相关的 `table` / `tables` 则是 GFM 表格实现，也与多文档标签无关。
 
 ### 编辑交互模型（Typora 行为核心）
 
@@ -121,7 +132,7 @@ src/preload/index.d.ts        # window.api 的类型声明
 
 > ProseMirror 会在每次 state 变化（含仅选区变化）时重新调用 `decorations` prop，所以「跟随光标揭示」是自动的，无需手动监听。
 
-**块级揭示**（heading `#`、blockquote `>`、fenced code ```` ``` ````、hr）：
+**块级揭示**（heading `#`、blockquote `>`、fenced code（三个反引号）、hr）：
 判断光标所在 block 类型，在 block 起始位置用 `Decoration.widget(..., { side: -1 })` 注入前缀符号（灰色、`contentEditable=false`）。
 
 **行内揭示**（`strong` `em` `code` `strikethrough` `link`）：
@@ -176,7 +187,7 @@ Lume 以完整支持 GFM 为目标，**必须在此 schema 基础上扩展出表
 所有文件读写只在 Main 进程进行；Renderer 经 `window.api` 间接访问，保持 contextIsolation。Main 用 `ipcMain.handle` 注册、Preload 用 `contextBridge` 暴露、类型声明写在 `src/preload/index.d.ts`。约定的能力：
 
 - **workspace:openFolder** — 选择文件夹作为工作区，返回路径与其中的 Markdown 文件树。
-- **file:read(path)** — 读取指定文件内容（打开标签页时用）。
+- **file:read(path)** — 读取指定文件内容（装载或替换当前文档时用）。
 - **file:save(path, content)** — 写回已有路径。
 - **file:saveAs(content)** — 弹保存框，返回新路径。
 
@@ -186,9 +197,9 @@ Lume 以完整支持 GFM 为目标，**必须在此 schema 基础上扩展出表
 
 当前不配置测试运行器（已知取舍，靠手动验证）。后续若引入，优先补 Markdown ⇄ PM 文档的 round-trip 一致性测试，以及语法揭示插件的 decoration 计算。
 
-## 实现阶段
+## 历史实现阶段
 
-分阶段推进，每阶段一份计划文件：
+以下名称保留历史计划原貌，不代表当前运行时仍采用其中的“标签页”等设计：
 
 1. **P1 编辑器内核 + CommonMark 往返** — PM 挂载、parse/serialize 内存往返跑通。
 2. **P2 语法揭示（Typora 核心）** — 块级 + 行内揭示，尽早验证最难的交互。
