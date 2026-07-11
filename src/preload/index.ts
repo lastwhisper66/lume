@@ -16,7 +16,9 @@ export interface DroppedResult {
 
 const api = {
   window: {
-    setTitle: (title: string): void => ipcRenderer.send('window:setTitle', title)
+    setTitle: (title: string): void => ipcRenderer.send('window:setTitle', title),
+    setTitleBarOverlay: (overlay: { color: string; symbolColor: string }): void =>
+      ipcRenderer.send('window:setTitleBarOverlay', overlay)
   },
   workspace: {
     openFolder: (): Promise<{ root: string; tree: FileNode[] } | null> =>

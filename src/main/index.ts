@@ -11,6 +11,12 @@ const TITLE_BAR_HEIGHT = 38
 const LIGHT_TITLE_BAR = { color: '#f7f8fa', symbolColor: '#2b2b2b' }
 const DARK_TITLE_BAR = { color: '#181818', symbolColor: '#d4d4d4' }
 const supportsTitleBarOverlay = process.platform === 'win32' || process.platform === 'linux'
+const ELECTRON_COLOR_PATTERN = /^(?:#[\da-f]{3,8}|(?:rgb|rgba|hsl|hsla)\([\d\s.,%+/-]+\))$/i
+
+interface RendererTitleBarOverlay {
+  color: string
+  symbolColor: string
+}
 
 function cssVariable(css: string, name: string): string | null {
   const escapedName = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
@@ -52,6 +58,21 @@ function applyTitleBarOverlay(window: BrowserWindow, payload: ThemePayload): voi
   } catch {
     // Older/unsupported window managers may expose the method without accepting overlays.
   }
+}
+
+function isElectronColor(value: unknown): value is string {
+  return (
+    typeof value === 'string' &&
+    value.length > 0 &&
+    value.length <= 64 &&
+    ELECTRON_COLOR_PATTERN.test(value)
+  )
+}
+
+function isRendererTitleBarOverlay(value: unknown): value is RendererTitleBarOverlay {
+  if (!value || typeof value !== 'object') return false
+  const overlay = value as Partial<RendererTitleBarOverlay>
+  return isElectronColor(overlay.color) && isElectronColor(overlay.symbolColor)
 }
 
 interface FileNode {
@@ -129,7 +150,7 @@ async function pushTheme(): Promise<void> {
   await buildAppMenu(themeManager)
 }
 
-function createWindow(): void {
+async function createWindow(): Promise<void> {
   // Create the browser window.
   const mainWindow = new BrowserWindow({
     width: 1428,
@@ -152,6 +173,8 @@ function createWindow(): void {
       sandbox: false
     }
   })
+
+  applyTitleBarOverlay(mainWindow, await themeManager.currentCss())
 
   mainWindow.on('ready-to-show', () => {
     mainWindow.show()
@@ -299,14 +322,24 @@ app.whenReady().then(async () => {
     const normalizedTitle = typeof title === 'string' && title.trim() ? title : 'Lume'
     BrowserWindow.fromWebContents(event.sender)?.setTitle(normalizedTitle)
   })
+  ipcMain.on('window:setTitleBarOverlay', (event, overlay: unknown) => {
+    if (!supportsTitleBarOverlay || !isRendererTitleBarOverlay(overlay)) return
+    const window = BrowserWindow.fromWebContents(event.sender)
+    if (!window || typeof window.setTitleBarOverlay !== 'function') return
+    try {
+      window.setTitleBarOverlay({ ...overlay, height: TITLE_BAR_HEIGHT })
+    } catch {
+      // Ignore unsupported colors/window managers without affecting the renderer.
+    }
+  })
 
-  createWindow()
+  await createWindow()
   await buildAppMenu(themeManager)
 
   app.on('activate', function () {
     // On macOS it's common to re-create a window in the app when the
     // dock icon is clicked and there are no other windows open.
-    if (BrowserWindow.getAllWindows().length === 0) createWindow()
+    if (BrowserWindow.getAllWindows().length === 0) void createWindow()
   })
 })
 
