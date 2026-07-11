@@ -180,6 +180,27 @@ body,
   -webkit-app-region: drag;
   user-select: none;
 }
+.window-brand {
+  position: absolute;
+  top: 0;
+  left: 12px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  height: 38px;
+  color: var(--lume-text);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1;
+}
+.window-brand-icon {
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+}
+.window-brand-name {
+  white-space: nowrap;
+}
 .document-title {
   position: absolute;
   top: 50%;
