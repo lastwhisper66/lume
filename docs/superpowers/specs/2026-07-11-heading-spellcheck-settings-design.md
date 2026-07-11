@@ -135,32 +135,16 @@
 
 主进程验证渲染进程提交的语言代码确实存在于 `availableSpellCheckerLanguages` 中。无效值不会传给 Electron API，而是保留现有有效设置并返回规范化状态。
 
-## 6. 设置持久化与主题配置拆分
+## 6. 统一设置持久化
 
 ### 6.1 设置结构
 
-现有 `ThemeManager` 在 Electron `app.getPath('userData')/settings.json` 中保存主题字段。为避免主题配置与通用应用设置继续耦合，本次将持久化拆分为两个文件：
+现有 `ThemeManager` 已经在 Electron `app.getPath('userData')/settings.json` 中保存主题选择状态。该文件只包含当前主题模式和主题名称，不包含颜色、字体或 CSS 内容；主题样式仍保存在现有 `themes/` 目录。因此主题选择、拼写检查和侧边栏状态都属于应用设置，继续统一保存在 `settings.json` 中。
 
-- `themes.json`：只保存主题模式和主题选择。
-- `settings.json`：只保存拼写检查与通用界面状态。
-
-主题 CSS 文件仍保存在现有 `themes/` 目录；`themes.json` 只描述选中了哪些主题，不保存 CSS 内容。
-
-`themes.json` 的结构保持现有主题字段语义：
+完整结构为：
 
 ```ts
-interface ThemeSettings {
-  themeMode: 'system' | 'manual'
-  manualTheme: string
-  dayTheme: string
-  nightTheme: string
-}
-```
-
-`settings.json` 的结构为：
-
-```ts
-interface AppSettings {
+interface AppSettings extends ThemeSettings {
   spellcheck: {
     mode: 'auto' | 'off' | 'language'
     language: string | null
@@ -172,21 +156,11 @@ interface AppSettings {
 
 `language` 只在手动模式下代表用户选择；`detectedLanguage` 保存自动模式最近一次可靠使用的具体 Electron 词典代码。
 
-### 6.2 旧设置迁移
+### 6.2 读取、合并与写入
 
-应用启动时在两个管理器初始化之前执行一次兼容迁移：
+启动时读取现有 `settings.json`，并与完整默认值进行字段级合并。旧文件已经存在的 `themeMode`、`manualTheme`、`dayTheme` 和 `nightTheme` 保持原值，只补充缺失的 `spellcheck` 与 `sidebarVisible`。类型错误或不受支持的语言代码被规范化为安全默认值。文件不存在或 JSON 损坏时不阻止应用启动。
 
-1. 如果 `themes.json` 不存在，则读取旧 `settings.json` 中的 `themeMode`、`manualTheme`、`dayTheme` 和 `nightTheme`，经过校验后写入 `themes.json`；旧文件中没有有效主题字段时使用主题默认值。
-2. 从旧 `settings.json` 中读取已经存在的 `spellcheck` 和 `sidebarVisible`；缺失时补充默认值。
-3. 将 `settings.json` 重写为只包含通用应用设置，移除已经迁移到 `themes.json` 的主题字段。
-
-如果 `themes.json` 已存在，则它是主题配置的唯一可信来源，不再用旧 `settings.json` 中残留的主题字段覆盖它。迁移失败不会阻止应用启动：两个管理器分别使用内存默认值，且不会在没有成功读取旧配置时破坏原文件。
-
-### 6.3 读取、合并与写入
-
-两个管理器分别读取自己的文件并与默认值进行字段级合并。缺失字段使用默认值；类型错误或不受支持的语言代码被规范化为安全默认值。文件不存在或 JSON 损坏时不阻止应用启动。
-
-`ThemeManager` 独占读写 `themes.json`，应用设置管理器独占读写 `settings.json`。每个管理器在自己的文件内串行写入；两类设置互不覆盖。写入失败不会中断编辑器，当前会话继续使用内存状态，并在开发日志中记录错误。
+新增单一主进程设置管理器，独占读写 `settings.json` 并串行处理所有更新。`ThemeManager` 通过该管理器读取和更新主题字段，不再自行写文件，从而避免主题、拼写检查和侧边栏更新互相覆盖。写入失败不会中断编辑器，当前会话继续使用内存状态，并在开发日志中记录错误。
 
 默认值为：
 
@@ -197,7 +171,7 @@ interface AppSettings {
 
 主题默认值继续沿用现有配置：跟随系统、手动主题为 `light`、日间主题为 `light`、夜间主题为 `dark`。
 
-### 6.4 侧边栏范围
+### 6.3 侧边栏范围
 
 本次只持久化侧边栏展开/收起状态。侧边栏内部“文件/大纲”页签仍在每次启动时默认选择“文件”，不持久化当前页签。
 
@@ -205,14 +179,15 @@ interface AppSettings {
 
 ### 7.1 主进程
 
-新增应用设置管理器，负责：
+新增统一设置管理器，负责：
 
-- 加载、校验和保存 `settings.json`。
+- 加载、校验和串行保存完整 `settings.json`。
+- 为 `ThemeManager` 提供主题字段读写接口。
 - 查询 Electron 可用拼写语言。
 - 应用 `spellCheckerEnabled` 与具体词典。
 - 处理来自渲染进程的设置更新。
 
-`ThemeManager` 继续负责主题文件、系统明暗监听和有效主题计算，并改为独占读写 `themes.json`。启动迁移逻辑在两个管理器之前运行，负责把旧 `settings.json` 中的主题字段安全拆分出去。
+`ThemeManager` 继续负责主题 CSS 文件、系统明暗监听和有效主题计算，但不再直接读写 `settings.json`。
 
 ### 7.2 Preload
 
@@ -256,9 +231,8 @@ interface AppSettings {
 - 重启后恢复拼写模式、手动语言或最近自动语言。
 - 重启后恢复侧边栏展开/收起状态。
 - 损坏或旧版设置文件能够回退到默认值。
-- 旧版 `settings.json` 中的主题字段能够迁移到 `themes.json`，并在迁移后保持原主题选择。
-- `settings.json` 迁移后只包含拼写检查和通用界面设置。
-- 后续主题更新不会覆盖拼写或侧边栏设置，反向更新也不会覆盖主题配置。
+- 旧版 `settings.json` 中的主题字段在补充新设置后保持原主题选择。
+- 后续主题更新不会覆盖拼写或侧边栏设置，反向更新也不会覆盖主题字段。
 - 文件打开、编辑、保存、主题切换、字数统计和侧边栏页签不受影响。
 - 运行 ESLint、TypeScript 类型检查和生产构建。
 
