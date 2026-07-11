@@ -82,11 +82,9 @@ function App(): React.JSX.Element {
       onDragLeave={onDragLeave}
       onDrop={onDrop}
     >
-      {sidebarVisible && (
-        <div className="sidebar">
-          <Sidebar />
-        </div>
-      )}
+      <div className={'sidebar' + (sidebarVisible ? '' : ' sidebar-hidden')}>
+        <Sidebar />
+      </div>
       <div className="main-pane">
         <TabBar />
         <Editor />

@@ -3,7 +3,7 @@ html, body, #root { height: 100%; margin: 0; }
 
 .app-layout {
   display: grid;
-  grid-template-columns: 260px 1fr;
+  grid-template-columns: 1fr;
   grid-template-rows: 100%;
   height: 100vh;
   background: var(--lume-bg);
@@ -11,6 +11,7 @@ html, body, #root { height: 100%; margin: 0; }
   font-family: var(--lume-font-ui);
   position: relative;
 }
+.app-layout.sidebar-visible { grid-template-columns: 260px 1fr; }
 
 /* ---------- Sidebar ---------- */
 .sidebar {
@@ -21,6 +22,7 @@ html, body, #root { height: 100%; margin: 0; }
   overflow-y: auto;
   padding: 12px;
 }
+.sidebar-hidden { display: none; }
 .file-tree { display: flex; flex-direction: column; }
 .workspace-root {
   margin: 4px 4px 8px;
