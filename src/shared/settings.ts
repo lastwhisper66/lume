@@ -18,6 +18,11 @@ export interface AppSettings extends ThemeSettings {
   sidebarVisible: boolean
 }
 
+export interface SettingsSnapshot extends AppSettings {
+  availableLanguages: string[]
+  actualSpellcheckLanguage: string | null
+}
+
 export const DEFAULT_SETTINGS: AppSettings = {
   themeMode: 'system',
   manualTheme: 'light',

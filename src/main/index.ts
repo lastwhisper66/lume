@@ -1,4 +1,4 @@
-import { app, shell, BrowserWindow, ipcMain, dialog, nativeTheme } from 'electron'
+import { app, shell, BrowserWindow, ipcMain, dialog, nativeTheme, session } from 'electron'
 import { join, resolve, relative, isAbsolute, dirname, basename } from 'path'
 import { promises as fs } from 'fs'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
@@ -7,6 +7,7 @@ import { ThemeManager } from './theme'
 import type { ThemePayload } from './theme'
 import { buildAppMenu } from './menu'
 import { SettingsStore } from './settings'
+import { SpellcheckController } from './spellcheck'
 
 const TITLE_BAR_HEIGHT = 38
 const LIGHT_TITLE_BAR = { color: '#f7f8fa', symbolColor: '#2b2b2b' }
@@ -219,6 +220,19 @@ app.whenReady().then(async () => {
     void pushTheme()
   })
 
+  const spellcheckController = new SpellcheckController(
+    settingsStore,
+    session.defaultSession,
+    app.getPreferredSystemLanguages()
+  )
+  spellcheckController.apply()
+  settingsStore.onChange(() => {
+    const snapshot = spellcheckController.snapshot()
+    for (const window of BrowserWindow.getAllWindows()) {
+      window.webContents.send('settings:changed', snapshot)
+    }
+  })
+
   // Default open or close DevTools by F12 in development
   // and ignore CommandOrControl + R in production.
   // see https://github.com/alex8088/electron-toolkit/tree/master/packages/utils
@@ -321,6 +335,17 @@ app.whenReady().then(async () => {
   ipcMain.on('theme:rescan', () => {
     themeManager.rescan()
   })
+  ipcMain.handle('settings:current', () => spellcheckController.snapshot())
+  ipcMain.handle('settings:setSidebarVisible', async (_event, visible: unknown) => {
+    await settingsStore.update({ sidebarVisible: visible === true })
+    return spellcheckController.snapshot()
+  })
+  ipcMain.handle('spellcheck:setMode', (_event, mode: unknown, language: unknown) =>
+    spellcheckController.setMode(mode, language)
+  )
+  ipcMain.handle('spellcheck:detected', (_event, base: unknown) =>
+    spellcheckController.submitDetectedBaseLanguage(base)
+  )
   ipcMain.on('window:setTitle', (event, title: string) => {
     const normalizedTitle = typeof title === 'string' && title.trim() ? title : 'Lume'
     BrowserWindow.fromWebContents(event.sender)?.setTitle(normalizedTitle)

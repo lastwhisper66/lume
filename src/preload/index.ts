@@ -1,5 +1,8 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
+import type { SettingsSnapshot, SpellcheckMode } from '../shared/settings'
+
+export type { SettingsSnapshot, SpellcheckMode } from '../shared/settings'
 
 export interface FileNode {
   name: string
@@ -73,6 +76,22 @@ const api = {
       const listener = (_e: unknown, p: { name: string; css: string }): void => cb(p)
       ipcRenderer.on('theme:apply', listener)
       return () => ipcRenderer.removeListener('theme:apply', listener)
+    }
+  },
+  settings: {
+    current: (): Promise<SettingsSnapshot> => ipcRenderer.invoke('settings:current'),
+    setSidebarVisible: (visible: boolean): Promise<SettingsSnapshot> =>
+      ipcRenderer.invoke('settings:setSidebarVisible', visible),
+    setSpellcheckMode: (
+      mode: SpellcheckMode,
+      language?: string
+    ): Promise<SettingsSnapshot> => ipcRenderer.invoke('spellcheck:setMode', mode, language),
+    submitDetectedLanguage: (baseLanguage: string): Promise<SettingsSnapshot> =>
+      ipcRenderer.invoke('spellcheck:detected', baseLanguage),
+    onChanged: (cb: (snapshot: SettingsSnapshot) => void): (() => void) => {
+      const listener = (_event: unknown, snapshot: SettingsSnapshot): void => cb(snapshot)
+      ipcRenderer.on('settings:changed', listener)
+      return () => ipcRenderer.removeListener('settings:changed', listener)
     }
   }
 }
