@@ -82,11 +82,11 @@ function App(): React.JSX.Element {
       onDragLeave={onDragLeave}
       onDrop={onDrop}
     >
+      <DocumentHeader />
       <div className={'sidebar' + (sidebarVisible ? '' : ' sidebar-hidden')}>
         <Sidebar />
       </div>
       <div className="main-pane">
-        <DocumentHeader />
         <Editor />
         <StatusBar
           sidebarVisible={sidebarVisible}
