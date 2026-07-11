@@ -1,6 +1,6 @@
 import type { Node as PMNode } from 'prosemirror-model'
 import { TextSelection } from 'prosemirror-state'
-import type { EditorView, NodeView, ViewMutationRecord } from 'prosemirror-view'
+import type { EditorView, NodeView } from 'prosemirror-view'
 import { parse } from '../markdown/parser'
 import { serialize } from '../markdown/serializer'
 
@@ -42,8 +42,8 @@ export class HeadingSourceView implements NodeView {
     return this.input?.contains(event.target as globalThis.Node) ?? false
   }
 
-  ignoreMutation(mutation: ViewMutationRecord): boolean {
-    return this.input?.contains(mutation.target) ?? false
+  ignoreMutation(): boolean {
+    return this.input !== null
   }
 
   destroy(): void {
