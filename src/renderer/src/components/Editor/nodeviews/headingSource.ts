@@ -19,6 +19,7 @@ export class HeadingSourceView implements NodeView {
   dom: HTMLElement
   contentDOM: HTMLElement
   private input: HTMLInputElement | null = null
+  private cleaningUp = false
 
   constructor(
     private node: PMNode,
@@ -44,7 +45,7 @@ export class HeadingSourceView implements NodeView {
   }
 
   ignoreMutation(): boolean {
-    return this.input !== null
+    return this.input !== null || this.cleaningUp
   }
 
   destroy(): void {
@@ -86,11 +87,15 @@ export class HeadingSourceView implements NodeView {
 
   private finishEditing(): void {
     if (!this.input) return
+    this.cleaningUp = true
     this.input.removeEventListener('blur', this.commit)
     this.input.removeEventListener('keydown', this.handleKeyDown)
     this.input.remove()
     this.input = null
     this.contentDOM.hidden = false
+    queueMicrotask(() => {
+      this.cleaningUp = false
+    })
   }
 
   private commit = (): void => {
@@ -104,6 +109,7 @@ export class HeadingSourceView implements NodeView {
     const replacement = parsedDoc.firstChild
     if (!replacement) return
 
+    this.finishEditing()
     const tr = this.view.state.tr.replaceWith(pos, pos + this.node.nodeSize, replacement)
     tr.setSelection(TextSelection.near(tr.doc.resolve(Math.min(pos + 1, tr.doc.content.size))))
     this.view.dispatch(tr.scrollIntoView())
