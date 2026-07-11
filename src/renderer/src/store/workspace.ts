@@ -91,8 +91,8 @@ export const useWorkspace = create<WorkspaceStore>((set, get) => {
     }
   }
 
-  const openFile = (path: string): Promise<boolean> => {
-    const request = openQueue.then(() => replaceDocument(path))
+  const enqueueOpen = <T>(operation: () => Promise<T>): Promise<T> => {
+    const request = openQueue.then(operation)
     openQueue = request.then(
       () => undefined,
       () => undefined
@@ -105,26 +105,31 @@ export const useWorkspace = create<WorkspaceStore>((set, get) => {
     tree: [],
     document: null,
 
-    openFolder: async () => {
-      const res = await window.api.workspace.openFolder()
-      if (!res) return
-      set({ root: res.root, tree: res.tree })
-    },
+    openFolder: () =>
+      enqueueOpen(async () => {
+        const res = await window.api.workspace.openFolder()
+        if (!res) return
+        set({ root: res.root, tree: res.tree })
+      }),
 
-    openFile,
+    openFile: (path) => enqueueOpen(() => replaceDocument(path)),
 
-    openFileByDialog: async () => {
-      const path = await window.api.workspace.openFile()
-      if (!path) return
-      await openFile(path)
-    },
+    openFileByDialog: () =>
+      enqueueOpen(async () => {
+        const path = await window.api.workspace.openFile()
+        if (!path) return
+        await replaceDocument(path)
+      }),
 
-    openDropped: async (files) => {
-      const paths = files.map((file) => window.api.dnd.pathForFile(file)).filter(Boolean)
-      if (paths.length === 0) return
-      const result = await window.api.workspace.openDropped(paths)
-      set({ root: result.root, tree: result.tree })
-      if (result.files[0]) await openFile(result.files[0])
+    openDropped: (files) => {
+      const droppedFiles = [...files]
+      return enqueueOpen(async () => {
+        const paths = droppedFiles.map((file) => window.api.dnd.pathForFile(file)).filter(Boolean)
+        if (paths.length === 0) return
+        const result = await window.api.workspace.openDropped(paths)
+        set({ root: result.root, tree: result.tree })
+        if (result.files[0]) await replaceDocument(result.files[0])
+      })
     },
 
     updateDocumentState: (state) =>
