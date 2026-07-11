@@ -15,6 +15,9 @@ export interface DroppedResult {
 }
 
 const api = {
+  window: {
+    setTitle: (title: string): void => ipcRenderer.send('window:setTitle', title)
+  },
   workspace: {
     openFolder: (): Promise<{ root: string; tree: FileNode[] } | null> =>
       ipcRenderer.invoke('workspace:openFolder'),

@@ -3,7 +3,7 @@ import type { Api } from './index'
 
 declare global {
   interface Window {
-    electron: ElectronAPI
-    api: Api
+    readonly electron: ElectronAPI
+    readonly api: Api
   }
 }

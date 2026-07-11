@@ -1,10 +1,58 @@
-import { app, shell, BrowserWindow, ipcMain, dialog } from 'electron'
+import { app, shell, BrowserWindow, ipcMain, dialog, nativeTheme } from 'electron'
 import { join, resolve, relative, isAbsolute, dirname, basename } from 'path'
 import { promises as fs } from 'fs'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { ThemeManager } from './theme'
+import type { ThemePayload } from './theme'
 import { buildAppMenu } from './menu'
+
+const TITLE_BAR_HEIGHT = 38
+const LIGHT_TITLE_BAR = { color: '#f7f8fa', symbolColor: '#2b2b2b' }
+const DARK_TITLE_BAR = { color: '#181818', symbolColor: '#d4d4d4' }
+const supportsTitleBarOverlay = process.platform === 'win32' || process.platform === 'linux'
+
+function cssVariable(css: string, name: string): string | null {
+  const escapedName = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const declarations = css
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .matchAll(new RegExp(`${escapedName}\\s*:\\s*([^;}\\r\\n]+)`, 'gi'))
+  let value: string | undefined
+  for (const declaration of declarations)
+    value = declaration[1].replace(/\s*!important\s*$/i, '').trim()
+  if (!value || /^(?:var|calc|color-mix)\(/i.test(value)) return null
+  return value
+}
+
+function titleBarOverlayFor(payload: ThemePayload): {
+  color: string
+  symbolColor: string
+  height: number
+} {
+  const prefersDarkFallback =
+    /(?:dark|night)/i.test(payload.name) ||
+    /color-scheme\s*:\s*dark/i.test(payload.css) ||
+    nativeTheme.shouldUseDarkColors
+  const fallback = prefersDarkFallback ? DARK_TITLE_BAR : LIGHT_TITLE_BAR
+
+  return {
+    color:
+      cssVariable(payload.css, '--lume-bg-sidebar') ??
+      cssVariable(payload.css, '--lume-bg') ??
+      fallback.color,
+    symbolColor: cssVariable(payload.css, '--lume-text') ?? fallback.symbolColor,
+    height: TITLE_BAR_HEIGHT
+  }
+}
+
+function applyTitleBarOverlay(window: BrowserWindow, payload: ThemePayload): void {
+  if (!supportsTitleBarOverlay || typeof window.setTitleBarOverlay !== 'function') return
+  try {
+    window.setTitleBarOverlay(titleBarOverlayFor(payload))
+  } catch {
+    // Older/unsupported window managers may expose the method without accepting overlays.
+  }
+}
 
 interface FileNode {
   name: string
@@ -76,6 +124,7 @@ async function pushTheme(): Promise<void> {
   const payload = await themeManager.currentCss()
   for (const w of BrowserWindow.getAllWindows()) {
     w.webContents.send('theme:apply', payload)
+    applyTitleBarOverlay(w, payload)
   }
   await buildAppMenu(themeManager)
 }
@@ -87,6 +136,15 @@ function createWindow(): void {
     height: 1072,
     show: false,
     title: 'Lume',
+    titleBarStyle: 'hidden',
+    ...(supportsTitleBarOverlay
+      ? {
+          titleBarOverlay: {
+            ...LIGHT_TITLE_BAR,
+            height: TITLE_BAR_HEIGHT
+          }
+        }
+      : {}),
     autoHideMenuBar: false,
     ...(process.platform === 'linux' ? { icon } : {}),
     webPreferences: {
@@ -236,6 +294,10 @@ app.whenReady().then(async () => {
   })
   ipcMain.on('theme:rescan', () => {
     themeManager.rescan()
+  })
+  ipcMain.on('window:setTitle', (event, title: string) => {
+    const normalizedTitle = typeof title === 'string' && title.trim() ? title : 'Lume'
+    BrowserWindow.fromWebContents(event.sender)?.setTitle(normalizedTitle)
   })
 
   createWindow()
