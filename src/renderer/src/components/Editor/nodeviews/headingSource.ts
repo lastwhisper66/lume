@@ -15,6 +15,20 @@ export function parseHeadingSource(source: string): ParsedHeadingSource {
   return { level: match[1].length, text: match[2] }
 }
 
+export function nearestTextOffset(
+  text: string,
+  x: number,
+  measure: (prefix: string) => number
+): number {
+  if (x <= 0) return 0
+  for (let offset = 1; offset <= text.length; offset++) {
+    const previousWidth = measure(text.slice(0, offset - 1))
+    const nextWidth = measure(text.slice(0, offset))
+    if (x < (previousWidth + nextWidth) / 2) return offset - 1
+  }
+  return text.length
+}
+
 export class HeadingSourceView implements NodeView {
   dom: HTMLElement
   contentDOM: HTMLElement
@@ -53,7 +67,7 @@ export class HeadingSourceView implements NodeView {
     this.dom.removeEventListener('click', this.startEditing)
   }
 
-  private startEditing = (): void => {
+  private startEditing = (event: MouseEvent): void => {
     if (this.input) return
     const input = document.createElement('input')
     input.className = 'heading-source-input'
@@ -66,7 +80,20 @@ export class HeadingSourceView implements NodeView {
     this.contentDOM.hidden = true
     this.dom.appendChild(input)
     input.focus()
-    input.setSelectionRange(0, 0)
+    const style = getComputedStyle(input)
+    const canvas = document.createElement('canvas')
+    const context = canvas.getContext('2d')
+    if (context) {
+      context.font = style.font
+      const rect = input.getBoundingClientRect()
+      const contentX = event.clientX - rect.left - Number.parseFloat(style.paddingLeft || '0')
+      const offset = nearestTextOffset(
+        input.value,
+        contentX,
+        (text) => context.measureText(text).width
+      )
+      input.setSelectionRange(offset, offset)
+    }
   }
 
   private handleKeyDown = (event: KeyboardEvent): void => {
