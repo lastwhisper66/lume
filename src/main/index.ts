@@ -168,14 +168,19 @@ app.whenReady().then(async () => {
     const files: string[] = []
     const displayedPaths = new Set<string>()
     const directoryRoots: string[] = []
+    const seenDirectoryRoots = new Set<string>()
     for (const p of paths) {
       const resolved = resolve(p)
       const stat = await fs.stat(resolved).catch(() => null)
       if (!stat) continue
       if (stat.isDirectory()) {
         workspaceRoots.add(resolved)
+        if (seenDirectoryRoots.has(resolved)) continue
+        seenDirectoryRoots.add(resolved)
         directoryRoots.push(resolved)
-        const children = dedupeMarkdownTree(await readMarkdownTree(resolved), displayedPaths)
+        const allChildren = await readMarkdownTree(resolved)
+        const children = dedupeMarkdownTree(allChildren, displayedPaths)
+        if (children.length === 0 && collectMarkdownPaths(allChildren).length > 0) continue
         tree.push({
           name: basename(resolved) || resolved,
           path: resolved,
@@ -191,9 +196,12 @@ app.whenReady().then(async () => {
         files.push(resolved)
       }
     }
+    const root = directoryRoots.length === 1 ? directoryRoots[0] : null
+    const onlyNaturalRoot =
+      root !== null && tree.length === 1 && tree[0].isDir && tree[0].path === root
     return {
-      root: directoryRoots.length === 1 ? directoryRoots[0] : null,
-      tree,
+      root,
+      tree: onlyNaturalRoot ? (tree[0].children ?? []) : tree,
       files
     }
   })
