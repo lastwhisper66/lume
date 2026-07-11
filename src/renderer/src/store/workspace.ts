@@ -57,17 +57,20 @@ export const useWorkspace = create<WorkspaceStore>((set, get) => {
     }
   }
 
-  const saveBeforeReplace = async (): Promise<boolean> => {
+  const saveDirtyDocument = async (): Promise<boolean> => {
     let current = get().document
     while (current?.dirty) {
       const result = await saveDocument(current)
-      if (!result.saved) {
-        window.alert('自动保存失败，请手动保存后再进行操作')
-        return false
-      }
+      if (!result.saved) return false
       current = get().document
     }
     return true
+  }
+
+  const saveBeforeReplace = async (): Promise<boolean> => {
+    const saved = await saveDirtyDocument()
+    if (!saved) window.alert('自动保存失败，请手动保存后再进行操作')
+    return saved
   }
 
   const replaceDocument = async (path: string): Promise<boolean> => {
@@ -128,11 +131,16 @@ export const useWorkspace = create<WorkspaceStore>((set, get) => {
     openDropped: (files) => {
       const droppedFiles = [...files]
       return enqueueOpen(async () => {
+        const saved = await saveDirtyDocument()
+        if (!saved) {
+          window.alert('自动保存失败，请手动保存后再进行操作')
+          return
+        }
         const paths = droppedFiles.map((file) => window.api.dnd.pathForFile(file)).filter(Boolean)
         if (paths.length === 0) return
         const result = await window.api.workspace.openDropped(paths)
+        if (result.files[0] && !(await replaceDocument(result.files[0]))) return
         set({ root: result.root, tree: result.tree })
-        if (result.files[0]) await replaceDocument(result.files[0])
       })
     },
 
