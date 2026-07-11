@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import Editor from './components/Editor'
-import FileTree from './components/Workspace/FileTree'
+import StatusBar from './components/StatusBar/StatusBar'
 import TabBar from './components/Tabs/TabBar'
+import Sidebar from './components/Workspace/Sidebar'
 import { useWorkspace } from './store/workspace'
 
 function App(): React.JSX.Element {
@@ -11,6 +12,7 @@ function App(): React.JSX.Element {
   const openDropped = useWorkspace((s) => s.openDropped)
 
   const [dragging, setDragging] = useState(false)
+  const [sidebarVisible, setSidebarVisible] = useState(false)
   const dragDepth = useRef(0)
 
   useEffect(() => {
@@ -74,18 +76,24 @@ function App(): React.JSX.Element {
 
   return (
     <div
-      className="app-layout"
+      className={'app-layout' + (sidebarVisible ? ' sidebar-visible' : '')}
       onDragEnter={onDragEnter}
       onDragOver={onDragOver}
       onDragLeave={onDragLeave}
       onDrop={onDrop}
     >
-      <div className="sidebar">
-        <FileTree />
-      </div>
+      {sidebarVisible && (
+        <div className="sidebar">
+          <Sidebar />
+        </div>
+      )}
       <div className="main-pane">
         <TabBar />
         <Editor />
+        <StatusBar
+          sidebarVisible={sidebarVisible}
+          onToggleSidebar={() => setSidebarVisible((visible) => !visible)}
+        />
       </div>
       {dragging && (
         <div className="drop-overlay">
