@@ -196,11 +196,14 @@ app.whenReady().then(async () => {
         files.push(resolved)
       }
     }
-    const root = directoryRoots.length === 1 ? directoryRoots[0] : null
+    const naturalRoot = directoryRoots.length === 1 ? directoryRoots[0] : null
     const onlyNaturalRoot =
-      root !== null && tree.length === 1 && tree[0].isDir && tree[0].path === root
+      naturalRoot !== null &&
+      tree.length === 1 &&
+      tree[0].isDir &&
+      tree[0].path === naturalRoot
     return {
-      root,
+      root: onlyNaturalRoot ? naturalRoot : null,
       tree: onlyNaturalRoot ? (tree[0].children ?? []) : tree,
       files
     }
