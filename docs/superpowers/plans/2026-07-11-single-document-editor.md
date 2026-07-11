@@ -10,6 +10,8 @@
 
 ---
 
+> **Correction (2026-07-11):** The implemented `DocumentHeader` is renderer content inside Electron's hidden `titleBarOverlay`, not a separate page navigation row. Native window controls remain in place, the sidebar and main pane reserve a 38px top inset, `window:setTitle` keeps the native title current, and the overlay colors follow the renderer's computed theme variables through `window:setTitleBarOverlay`. The task text below is retained as historical planning context.
+
 ## File map
 
 - Modify `src/main/index.ts`: return a complete dropped-file tree and keep all dropped paths authorized for file IO.
@@ -27,6 +29,7 @@
 ### Task 1: Return every dropped Markdown file in the sidebar tree
 
 **Files:**
+
 - Modify: `src/main/index.ts`
 - Modify: `src/preload/index.ts`
 
@@ -91,6 +94,7 @@ git commit -m "feat: expose all dropped markdown files"
 ### Task 2: Replace the tab store with one current document
 
 **Files:**
+
 - Modify: `src/renderer/src/store/workspace.ts`
 
 - [ ] **Step 1: Replace tab types and actions**
@@ -193,6 +197,7 @@ git commit -m "refactor: replace tabs with current document"
 ### Task 3: Bind editor metadata consumers to the current document
 
 **Files:**
+
 - Modify: `src/renderer/src/components/Editor/index.tsx`
 - Modify: `src/renderer/src/components/Outline/Outline.tsx`
 - Modify: `src/renderer/src/components/StatusBar/StatusBar.tsx`
@@ -250,6 +255,7 @@ git commit -m "refactor: read editor state from current document"
 ### Task 4: Replace the tab bar with a centered filename navigation header
 
 **Files:**
+
 - Create: `src/renderer/src/components/Navigation/DocumentHeader.tsx`
 - Modify: `src/renderer/src/App.tsx`
 - Delete: `src/renderer/src/components/Tabs/TabBar.tsx`
@@ -335,6 +341,7 @@ git commit -m "feat: show current file in navigation header"
 ### Task 5: Update architecture documentation and run full verification
 
 **Files:**
+
 - Modify: `CLAUDE.md`
 
 - [ ] **Step 1: Update current architecture documentation**

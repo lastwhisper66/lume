@@ -61,6 +61,10 @@ No test runner is configured yet.
 
 打开另一个文件前，store 会先自动保存 dirty 的当前文档；只有保存成功后才读取并替换为新文档。自动保存失败时保留当前文档并中止切换。多个打开请求通过队列串行处理，避免文件读取与自动保存互相覆盖。窗口关闭时若当前文档 dirty，仍需用户确认。
 
+`DocumentHeader` 是 Electron `titleBarOverlay` 中的渲染内容，不是页面导航行。主窗口使用 `titleBarStyle: 'hidden'` 隐藏系统标题栏背景，同时保留原生窗口按钮；header 作为 38px 高的绝对定位拖拽区覆盖窗口顶部，`.app-layout` 仍只有一行内容网格，侧边栏和主内容分别用 38px `padding-top` 留出 top inset，避免与标题和原生按钮重叠。
+
+文档标题与标题栏主题都通过 preload 暴露的 `window.api.window` 同步到主进程：`DocumentHeader` 在当前文件变化时发送 `window:setTitle`，主进程调用 `BrowserWindow.setTitle`；主题 CSS 注入后，Renderer 用 `getComputedStyle(document.documentElement)` 解析最终生效的 `--lume-bg-sidebar` / `--lume-bg` 与 `--lume-text`，再发送 `window:setTitleBarOverlay`。Main 会校验颜色并固定 overlay 高度为 38px；窗口创建和主进程推送主题时也会从主题 payload 设置 overlay，保证原生按钮区域与实际主题同步。
+
 ### 数据流
 
 ```
@@ -106,15 +110,15 @@ src/renderer/src/
       nodeviews/codeblock.ts  # 内嵌 CodeMirror 6
       nodeviews/image.ts      # 图片渲染 + 点击编辑 src
     Navigation/
-      DocumentHeader.tsx      # 当前单文档标题
+      DocumentHeader.tsx      # Electron titleBarOverlay 内的当前单文档标题与拖拽区
     Workspace/
       Sidebar.tsx             # 侧边栏内部的“文件 / 大纲”页面切换
       FileTree.tsx            # 侧边文件树
     Outline/                  # 当前文档大纲与滚动定位
     StatusBar/StatusBar.tsx   # 侧边栏显隐控制与状态栏
-  App.tsx                     # DocumentHeader + Sidebar + Editor + StatusBar 布局
-src/main/index.ts             # IPC handlers（workspace / 文件读写）
-src/preload/index.ts          # contextBridge 暴露 window.api.*
+  App.tsx                     # titleBarOverlay 内容 + Sidebar + Editor + StatusBar 布局
+src/main/index.ts             # BrowserWindow overlay + IPC handlers（窗口 / 主题 / workspace / 文件读写）
+src/preload/index.ts          # contextBridge 暴露 window.api.*（含窗口标题与 overlay）
 src/preload/index.d.ts        # window.api 的类型声明
 ```
 
@@ -192,6 +196,8 @@ Lume 以完整支持 GFM 为目标，**必须在此 schema 基础上扩展出表
 - **file:saveAs(content)** — 弹保存框，返回新路径。
 
 统一 UTF-8。安全上：markdown-it `html: false` 禁用原始 HTML；外部链接交系统浏览器打开，不在应用内导航。
+
+窗口 chrome 使用单向 IPC：Renderer 通过 `window:setTitle` 更新原生窗口标题，通过 `window:setTitleBarOverlay` 提交从 computed style 得到的背景色和按钮符号色；Main 负责输入校验并调用对应的 `BrowserWindow` API。不要把 `DocumentHeader` 改回独立 grid row 或自行绘制关闭 / 最大化 / 最小化按钮。
 
 ## 测试
 
