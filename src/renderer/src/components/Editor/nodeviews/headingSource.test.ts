@@ -1,5 +1,7 @@
+// @vitest-environment jsdom
+
 import { describe, expect, it } from 'vitest'
-import { parseHeadingSource, sourceCaretOffset } from './headingSource'
+import { parseHeadingSource, sourceCaretOffset, splitHeadingSource } from './headingSource'
 
 describe('parseHeadingSource', () => {
   it.each([
@@ -22,5 +24,16 @@ describe('sourceCaretOffset', () => {
 
   it('clamps the caret to the available source', () => {
     expect(sourceCaretOffset(4, 20, 12)).toBe(12)
+  })
+})
+
+describe('splitHeadingSource', () => {
+  it.each([
+    ['# BeforeAfter', 8, 8, { headingSource: '# Before', paragraphSource: 'After' }],
+    ['## Before middle after', 9, 17, { headingSource: '## Before', paragraphSource: 'after' }],
+    ['### Title', 0, 0, { headingSource: '### ', paragraphSource: 'Title' }],
+    ['# Title', 7, 7, { headingSource: '# Title', paragraphSource: '' }]
+  ])('splits %j from selection %d-%d', (source, selectionStart, selectionEnd, expected) => {
+    expect(splitHeadingSource(source, selectionStart, selectionEnd)).toEqual(expected)
   })
 })

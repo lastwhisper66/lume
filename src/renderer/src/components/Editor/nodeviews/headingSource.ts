@@ -9,10 +9,28 @@ export interface ParsedHeadingSource {
   text: string
 }
 
+export interface SplitHeadingSource {
+  headingSource: string
+  paragraphSource: string
+}
+
 export function parseHeadingSource(source: string): ParsedHeadingSource {
   const match = /^(#{1,6})\s+(.*)$/.exec(source)
   if (!match) return { level: null, text: source }
   return { level: match[1].length, text: match[2] }
+}
+
+export function splitHeadingSource(
+  source: string,
+  selectionStart: number,
+  selectionEnd: number
+): SplitHeadingSource {
+  const parsed = parseHeadingSource(source)
+  const prefixLength = parsed.level === null ? 0 : parsed.level + 1
+  const bodyStart = Math.min(prefixLength, source.length)
+  const from = Math.max(bodyStart, Math.min(selectionStart, source.length))
+  const to = Math.max(from, Math.min(selectionEnd, source.length))
+  return { headingSource: source.slice(0, from), paragraphSource: source.slice(to) }
 }
 
 export function sourceCaretOffset(
