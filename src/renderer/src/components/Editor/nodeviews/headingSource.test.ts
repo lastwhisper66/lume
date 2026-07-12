@@ -110,6 +110,70 @@ describe('HeadingSourceView integration', () => {
     expect(view.dom.querySelector('.heading-source-rendered')?.tagName).toBe('H2')
   })
 
+  it('keeps transient invalid heading source as a draft in the same textarea', () => {
+    const view = createView('# Title')
+    const textarea = openHeadingSource(view)
+
+    inputSource(textarea, '#Title')
+
+    expect(serialize(view.state.doc).trimEnd()).toBe('# Title')
+    expect(view.dom.querySelector('.heading-source-input')).toBe(textarea)
+    expect(textarea.value).toBe('#Title')
+    expect(document.activeElement).toBe(textarea)
+  })
+
+  it('live-syncs a transient invalid draft once it becomes a valid heading again', () => {
+    const view = createView('# Title')
+    const textarea = openHeadingSource(view)
+    inputSource(textarea, '#Title')
+    textarea.setSelectionRange(1, 1)
+
+    inputSource(textarea, '# Corrected')
+
+    expect(serialize(view.state.doc).trimEnd()).toBe('# Corrected')
+    expect(view.dom.querySelector('.heading-source-input')).toBe(textarea)
+    expect(textarea.value).toBe('# Corrected')
+  })
+
+  it('commits an invalid draft as a paragraph on blur', () => {
+    const view = createView('# Title')
+    const textarea = openHeadingSource(view)
+    inputSource(textarea, 'Plain text')
+
+    textarea.dispatchEvent(new FocusEvent('blur'))
+
+    expect(view.dom.querySelector('.heading-source-input')).toBeNull()
+    expect(view.state.doc.firstChild?.type.name).toBe('paragraph')
+    expect(view.state.doc.firstChild?.textContent).toBe('Plain text')
+  })
+
+  it('commits an invalid draft before Mod-S bubbles to the global save path', () => {
+    const view = createView('# Title')
+    const textarea = openHeadingSource(view)
+    inputSource(textarea, 'Save this draft')
+    let sourceSeenBySave = ''
+    let defaultPreventedAtSave = true
+    const saveListener = (event: KeyboardEvent): void => {
+      sourceSeenBySave = serialize(view.state.doc).trimEnd()
+      defaultPreventedAtSave = event.defaultPrevented
+    }
+    window.addEventListener('keydown', saveListener, { once: true })
+
+    const notCanceled = textarea.dispatchEvent(
+      new KeyboardEvent('keydown', {
+        key: 's',
+        ctrlKey: true,
+        bubbles: true,
+        cancelable: true
+      })
+    )
+
+    expect(notCanceled).toBe(true)
+    expect(defaultPreventedAtSave).toBe(false)
+    expect(sourceSeenBySave).toBe('Save this draft')
+    expect(view.state.doc.firstChild?.type.name).toBe('paragraph')
+  })
+
   it('splits at Enter into a heading and paragraph and selects the paragraph start', () => {
     const view = createView('# BeforeAfter')
     const textarea = openHeadingSource(view)

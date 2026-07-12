@@ -77,6 +77,7 @@ export class HeadingSourceView implements NodeView {
   private resizeObserver: ResizeObserver | null = null
   private cleaningUp = false
   private dispatchingInput = false
+  private unsyncedDraft = false
 
   constructor(
     private node: PMNode,
@@ -97,6 +98,7 @@ export class HeadingSourceView implements NodeView {
     this.node = node
     this.updateRenderedLevel(node.attrs.level as number)
     if (this.input && !this.dispatchingInput) {
+      this.unsyncedDraft = false
       const value = this.serializeNode(node)
       if (this.input.value !== value) {
         const selectionStart = Math.min(this.input.selectionStart, value.length)
@@ -154,7 +156,7 @@ export class HeadingSourceView implements NodeView {
     input.wrap = 'soft'
     input.rows = 1
     input.setAttribute('aria-label', '标题 Markdown 源码')
-    input.addEventListener('blur', this.finishEditing)
+    input.addEventListener('blur', this.handleBlur)
     input.addEventListener('input', this.handleInput)
     input.addEventListener('keydown', this.handleKeyDown)
     this.input = input
@@ -175,15 +177,13 @@ export class HeadingSourceView implements NodeView {
     const pos = this.getPos()
     if (!input || pos === undefined) return
     const parsed = parseSingleBlock(input.value)
-    const replacement =
-      parsed?.type === this.node.type
-        ? parsed
-        : paragraphFromSource(this.node.type.schema, input.value)
-    const tr = this.view.state.tr.replaceWith(pos, pos + this.node.nodeSize, replacement)
-    if (replacement.type !== this.node.type) {
-      const offset = Math.min(input.selectionStart, replacement.content.size)
-      tr.setSelection(TextSelection.create(tr.doc, pos + 1 + offset))
+    if (parsed?.type !== this.node.type) {
+      this.unsyncedDraft = true
+      this.resizeInput()
+      return
     }
+    this.unsyncedDraft = false
+    const tr = this.view.state.tr.replaceWith(pos, pos + this.node.nodeSize, parsed)
     this.dispatchingInput = true
     try {
       this.view.dispatch(tr)
@@ -191,7 +191,6 @@ export class HeadingSourceView implements NodeView {
       this.dispatchingInput = false
     }
     this.resizeInput()
-    if (replacement.type !== this.node.type) this.view.focus()
   }
 
   private handleKeyDown = (event: KeyboardEvent): void => {
@@ -205,6 +204,10 @@ export class HeadingSourceView implements NodeView {
     if (modifier && event.key.toLowerCase() === 'y') {
       event.preventDefault()
       redo(this.view.state, this.view.dispatch)
+      return
+    }
+    if (modifier && event.key.toLowerCase() === 's') {
+      if (this.unsyncedDraft) this.commitInvalidDraft()
       return
     }
     if (event.key === 'Enter') {
@@ -241,6 +244,24 @@ export class HeadingSourceView implements NodeView {
     this.view.focus()
   }
 
+  private handleBlur = (): void => {
+    if (this.unsyncedDraft && this.commitInvalidDraft()) return
+    this.finishEditing()
+  }
+
+  private commitInvalidDraft(): boolean {
+    const input = this.input
+    const pos = this.getPos()
+    if (!input || pos === undefined) return false
+    const paragraph = paragraphFromSource(this.node.type.schema, input.value)
+    const offset = Math.min(input.selectionStart, paragraph.content.size)
+    const tr = this.view.state.tr.replaceWith(pos, pos + this.node.nodeSize, paragraph)
+    tr.setSelection(TextSelection.create(tr.doc, pos + 1 + offset))
+    this.unsyncedDraft = false
+    this.view.dispatch(tr)
+    return true
+  }
+
   private applyHeadingPresentation(): void {
     if (!this.input) return
     const style = getComputedStyle(this.rendered)
@@ -262,13 +283,14 @@ export class HeadingSourceView implements NodeView {
     if (!this.input) return
     this.cleaningUp = true
     const input = this.input
-    input.removeEventListener('blur', this.finishEditing)
+    input.removeEventListener('blur', this.handleBlur)
     input.removeEventListener('input', this.handleInput)
     input.removeEventListener('keydown', this.handleKeyDown)
     this.resizeObserver?.disconnect()
     this.resizeObserver = null
     input.remove()
     this.input = null
+    this.unsyncedDraft = false
     this.rendered.hidden = false
     queueMicrotask(() => {
       this.cleaningUp = false
