@@ -1,4 +1,5 @@
-import type { Node as PMNode } from 'prosemirror-model'
+import { closeHistory, redo, undo } from 'prosemirror-history'
+import type { Node as PMNode, Schema } from 'prosemirror-model'
 import { TextSelection } from 'prosemirror-state'
 import type { EditorView, NodeView } from 'prosemirror-view'
 import { parse } from '../markdown/parser'
@@ -59,28 +60,53 @@ function renderedTextOffsetAtPoint(root: HTMLElement, x: number, y: number): num
   return range.toString().length
 }
 
+function parseSingleBlock(source: string): PMNode | null {
+  const parsedDoc = parse(source)
+  return parsedDoc.childCount === 1 ? parsedDoc.firstChild : null
+}
+
+function paragraphFromSource(schema: Schema, source: string): PMNode {
+  return schema.nodes.paragraph.create(null, source ? schema.text(source) : undefined)
+}
+
 export class HeadingSourceView implements NodeView {
   dom: HTMLElement
   contentDOM: HTMLElement
-  private input: HTMLInputElement | null = null
+  private rendered: HTMLHeadingElement
+  private input: HTMLTextAreaElement | null = null
+  private resizeObserver: ResizeObserver | null = null
   private cleaningUp = false
+  private dispatchingInput = false
 
   constructor(
     private node: PMNode,
     private view: EditorView,
     private getPos: () => number | undefined
   ) {
-    this.dom = document.createElement(`h${node.attrs.level}`)
+    this.dom = document.createElement('div')
+    this.dom.className = 'heading-source-wrapper'
     this.contentDOM = document.createElement('span')
-    this.dom.appendChild(this.contentDOM)
-    this.dom.addEventListener('click', this.startEditing)
+    this.rendered = this.createRenderedHeading(node.attrs.level as number)
+    this.rendered.appendChild(this.contentDOM)
+    this.dom.appendChild(this.rendered)
+    this.rendered.addEventListener('click', this.startEditing)
   }
 
   update(node: PMNode): boolean {
     if (node.type !== this.node.type) return false
-    this.finishEditing()
     this.node = node
-    if (this.dom.tagName !== `H${node.attrs.level}`) return false
+    this.updateRenderedLevel(node.attrs.level as number)
+    if (this.input && !this.dispatchingInput) {
+      const value = this.serializeNode(node)
+      if (this.input.value !== value) {
+        const selectionStart = Math.min(this.input.selectionStart, value.length)
+        const selectionEnd = Math.min(this.input.selectionEnd, value.length)
+        this.input.value = value
+        this.input.setSelectionRange(selectionStart, selectionEnd)
+      }
+    }
+    this.applyHeadingPresentation()
+    this.resizeInput()
     return true
   }
 
@@ -94,71 +120,158 @@ export class HeadingSourceView implements NodeView {
 
   destroy(): void {
     this.finishEditing()
-    this.dom.removeEventListener('click', this.startEditing)
+    this.rendered.removeEventListener('click', this.startEditing)
+  }
+
+  private createRenderedHeading(level: number): HTMLHeadingElement {
+    const rendered = document.createElement(`h${level}`) as HTMLHeadingElement
+    rendered.className = 'heading-source-rendered'
+    return rendered
+  }
+
+  private updateRenderedLevel(level: number): void {
+    if (this.rendered.tagName === `H${level}`) return
+    const oldRendered = this.rendered
+    const rendered = this.createRenderedHeading(level)
+    rendered.hidden = oldRendered.hidden
+    rendered.appendChild(this.contentDOM)
+    oldRendered.replaceWith(rendered)
+    oldRendered.removeEventListener('click', this.startEditing)
+    rendered.addEventListener('click', this.startEditing)
+    this.rendered = rendered
+  }
+
+  private serializeNode(node: PMNode): string {
+    return serialize(node.type.schema.node('doc', null, [node])).trimEnd()
   }
 
   private startEditing = (event: MouseEvent): void => {
     if (this.input) return
     const renderedOffset = renderedTextOffsetAtPoint(this.contentDOM, event.clientX, event.clientY)
-    const input = document.createElement('input')
+    const input = document.createElement('textarea')
     input.className = 'heading-source-input'
-    input.type = 'text'
-    input.value = serialize(this.node.type.schema.node('doc', null, [this.node])).trimEnd()
+    input.value = this.serializeNode(this.node)
+    input.wrap = 'soft'
+    input.rows = 1
     input.setAttribute('aria-label', '标题 Markdown 源码')
-    input.addEventListener('blur', this.commit)
+    input.addEventListener('blur', this.finishEditing)
+    input.addEventListener('input', this.handleInput)
     input.addEventListener('keydown', this.handleKeyDown)
     this.input = input
-    this.contentDOM.hidden = true
+    this.applyHeadingPresentation()
+    this.rendered.hidden = true
     this.dom.appendChild(input)
+    this.resizeObserver = new ResizeObserver(this.resizeInput)
+    this.resizeObserver.observe(input)
     input.focus()
     const prefixLength = (this.node.attrs.level as number) + 1
     const offset = sourceCaretOffset(prefixLength, renderedOffset, input.value.length)
     input.setSelectionRange(offset, offset)
+    this.resizeInput()
+  }
+
+  private handleInput = (): void => {
+    const input = this.input
+    const pos = this.getPos()
+    if (!input || pos === undefined) return
+    const parsed = parseSingleBlock(input.value)
+    const replacement =
+      parsed?.type === this.node.type
+        ? parsed
+        : paragraphFromSource(this.node.type.schema, input.value)
+    const tr = this.view.state.tr.replaceWith(pos, pos + this.node.nodeSize, replacement)
+    if (replacement.type !== this.node.type) {
+      const offset = Math.min(input.selectionStart, replacement.content.size)
+      tr.setSelection(TextSelection.create(tr.doc, pos + 1 + offset))
+    }
+    this.dispatchingInput = true
+    try {
+      this.view.dispatch(tr)
+    } finally {
+      this.dispatchingInput = false
+    }
+    this.resizeInput()
+    if (replacement.type !== this.node.type) this.view.focus()
   }
 
   private handleKeyDown = (event: KeyboardEvent): void => {
-    if (event.key === 'Escape') {
+    const modifier = event.ctrlKey || event.metaKey
+    if (modifier && event.key.toLowerCase() === 'z') {
       event.preventDefault()
-      this.cancel()
-    } else if (event.key === 'Enter') {
+      const command = event.shiftKey ? redo : undo
+      command(this.view.state, this.view.dispatch)
+      return
+    }
+    if (modifier && event.key.toLowerCase() === 'y') {
       event.preventDefault()
-      this.commit()
-      this.view.focus()
+      redo(this.view.state, this.view.dispatch)
+      return
+    }
+    if (event.key === 'Enter') {
+      event.preventDefault()
+      this.splitAtSelection()
     }
   }
 
-  private cancel(): void {
+  private splitAtSelection(): void {
+    const input = this.input
+    const pos = this.getPos()
+    if (!input || pos === undefined) return
+    const { headingSource, paragraphSource } = splitHeadingSource(
+      input.value,
+      input.selectionStart,
+      input.selectionEnd
+    )
+    const parsedHeading = parseSingleBlock(headingSource)
+    const parsedSource = parseHeadingSource(headingSource)
+    const heading =
+      parsedHeading?.type === this.node.type
+        ? parsedHeading
+        : this.node.type.create(
+            { level: parsedSource.level ?? this.node.attrs.level },
+            parsedSource.text ? this.node.type.schema.text(parsedSource.text) : undefined
+          )
+    const paragraph = paragraphFromSource(this.node.type.schema, paragraphSource)
+    const paragraphPos = pos + heading.nodeSize
+    let tr = this.view.state.tr.replaceWith(pos, pos + this.node.nodeSize, [heading, paragraph])
+    tr = closeHistory(tr)
+    tr.setSelection(TextSelection.create(tr.doc, paragraphPos + 1))
     this.finishEditing()
+    this.view.dispatch(tr)
     this.view.focus()
   }
 
-  private finishEditing(): void {
+  private applyHeadingPresentation(): void {
+    if (!this.input) return
+    const style = getComputedStyle(this.rendered)
+    this.input.style.fontSize = style.fontSize
+    this.input.style.fontWeight = style.fontWeight
+    this.input.style.lineHeight = style.lineHeight
+    this.input.style.letterSpacing = style.letterSpacing
+    this.input.style.marginTop = style.marginTop
+    this.input.style.marginBottom = style.marginBottom
+  }
+
+  private resizeInput = (): void => {
+    if (!this.input) return
+    this.input.style.height = 'auto'
+    this.input.style.height = `${this.input.scrollHeight}px`
+  }
+
+  private finishEditing = (): void => {
     if (!this.input) return
     this.cleaningUp = true
-    this.input.removeEventListener('blur', this.commit)
-    this.input.removeEventListener('keydown', this.handleKeyDown)
-    this.input.remove()
+    const input = this.input
+    input.removeEventListener('blur', this.finishEditing)
+    input.removeEventListener('input', this.handleInput)
+    input.removeEventListener('keydown', this.handleKeyDown)
+    this.resizeObserver?.disconnect()
+    this.resizeObserver = null
+    input.remove()
     this.input = null
-    this.contentDOM.hidden = false
+    this.rendered.hidden = false
     queueMicrotask(() => {
       this.cleaningUp = false
     })
-  }
-
-  private commit = (): void => {
-    if (!this.input) return
-    const source = this.input.value
-    this.input.removeEventListener('blur', this.commit)
-    const pos = this.getPos()
-    if (pos === undefined) return
-
-    const parsedDoc = parse(source)
-    const replacement = parsedDoc.firstChild
-    if (!replacement) return
-
-    this.finishEditing()
-    const tr = this.view.state.tr.replaceWith(pos, pos + this.node.nodeSize, replacement)
-    tr.setSelection(TextSelection.near(tr.doc.resolve(Math.min(pos + 1, tr.doc.content.size))))
-    this.view.dispatch(tr.scrollIntoView())
   }
 }

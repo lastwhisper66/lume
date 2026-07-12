@@ -54,6 +54,13 @@
 }
 .md-marker-block { display: block; }
 
+.heading-source-wrapper {
+  display: contents;
+}
+.lume-editor .ProseMirror > * + .heading-source-wrapper > .heading-source-rendered {
+  margin-top: 0.75em;
+}
+
 .heading-source-input {
   display: block;
   width: 100%;
@@ -67,6 +74,11 @@
   font: inherit;
   font-family: var(--lume-font-mono);
   line-height: inherit;
+  resize: none;
+  overflow-x: hidden;
+  overflow-y: hidden;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 .lume-editor table {

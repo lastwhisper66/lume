@@ -1,7 +1,183 @@
 // @vitest-environment jsdom
 
-import { describe, expect, it } from 'vitest'
-import { parseHeadingSource, sourceCaretOffset, splitHeadingSource } from './headingSource'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { history, undo } from 'prosemirror-history'
+import { EditorState } from 'prosemirror-state'
+import { EditorView } from 'prosemirror-view'
+import { parse } from '../markdown/parser'
+import { serialize } from '../markdown/serializer'
+import {
+  HeadingSourceView,
+  parseHeadingSource,
+  sourceCaretOffset,
+  splitHeadingSource
+} from './headingSource'
+
+class ResizeObserverStub implements ResizeObserver {
+  observe(): void {
+    return
+  }
+  unobserve(): void {
+    return
+  }
+  disconnect(): void {
+    return
+  }
+}
+
+function createHeadingView(source: string): EditorView {
+  const mount = document.createElement('div')
+  document.body.appendChild(mount)
+  const view = new EditorView(mount, {
+    state: EditorState.create({ doc: parse(source), plugins: [history()] }),
+    nodeViews: {
+      heading: (node, editorView, getPos) => new HeadingSourceView(node, editorView, getPos)
+    },
+    dispatchTransaction(transaction) {
+      view.updateState(view.state.apply(transaction))
+    }
+  })
+  return view
+}
+
+function openHeadingSource(view: EditorView): HTMLTextAreaElement {
+  const rendered = view.dom.querySelector<HTMLElement>('.heading-source-rendered')
+  if (!rendered) throw new Error('Rendered heading not found')
+  rendered.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+  const textarea = view.dom.querySelector<HTMLTextAreaElement>('.heading-source-input')
+  if (!textarea) throw new Error('Heading source textarea not found')
+  return textarea
+}
+
+function inputSource(textarea: HTMLTextAreaElement, source: string): void {
+  textarea.value = source
+  textarea.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText' }))
+}
+
+describe('HeadingSourceView integration', () => {
+  const views: EditorView[] = []
+
+  beforeEach(() => {
+    vi.stubGlobal('ResizeObserver', ResizeObserverStub)
+    Object.defineProperties(Range.prototype, {
+      getBoundingClientRect: {
+        configurable: true,
+        value: () => new DOMRect()
+      },
+      getClientRects: {
+        configurable: true,
+        value: () => []
+      }
+    })
+  })
+
+  afterEach(() => {
+    for (const view of views) view.destroy()
+    document.body.replaceChildren()
+    vi.unstubAllGlobals()
+  })
+
+  function createView(source: string): EditorView {
+    const view = createHeadingView(source)
+    views.push(view)
+    return view
+  }
+
+  it('soft-wraps, auto-resizes, and immediately serializes live input without replacing it', () => {
+    const view = createView('# Old')
+    const textarea = openHeadingSource(view)
+    expect(textarea).toBeInstanceOf(HTMLTextAreaElement)
+    expect(textarea.wrap).toBe('soft')
+    expect(textarea.rows).toBe(1)
+    Object.defineProperty(textarea, 'scrollHeight', { configurable: true, value: 72 })
+
+    inputSource(textarea, '# A much longer heading that should wrap')
+
+    expect(serialize(view.state.doc).trimEnd()).toBe('# A much longer heading that should wrap')
+    expect(view.dom.querySelector('.heading-source-input')).toBe(textarea)
+    expect(textarea.style.height).toBe('72px')
+    expect(document.activeElement).toBe(textarea)
+  })
+
+  it('keeps the same textarea when the live heading level changes', () => {
+    const view = createView('# Old')
+    const textarea = openHeadingSource(view)
+
+    inputSource(textarea, '## New')
+
+    expect(view.state.doc.firstChild?.attrs.level).toBe(2)
+    expect(view.dom.querySelector('.heading-source-input')).toBe(textarea)
+    expect(view.dom.querySelector('.heading-source-rendered')?.tagName).toBe('H2')
+  })
+
+  it('splits at Enter into a heading and paragraph and selects the paragraph start', () => {
+    const view = createView('# BeforeAfter')
+    const textarea = openHeadingSource(view)
+    textarea.setSelectionRange(8, 8)
+
+    textarea.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))
+
+    expect(view.state.doc.childCount).toBe(2)
+    expect(view.state.doc.child(0).type.name).toBe('heading')
+    expect(view.state.doc.child(0).textContent).toBe('Before')
+    expect(view.state.doc.child(1).type.name).toBe('paragraph')
+    expect(view.state.doc.child(1).textContent).toBe('After')
+    expect(view.state.selection.$from.parent.type.name).toBe('paragraph')
+    expect(view.state.selection.$from.parentOffset).toBe(0)
+    expect(document.activeElement).toBe(view.dom)
+  })
+
+  it('keeps the Enter split separate from prior live typing in history', () => {
+    const view = createView('# Old')
+    const textarea = openHeadingSource(view)
+    inputSource(textarea, '# New text')
+    textarea.setSelectionRange(textarea.value.length, textarea.value.length)
+    textarea.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))
+
+    expect(undo(view.state, view.dispatch)).toBe(true)
+
+    expect(serialize(view.state.doc).trimEnd()).toBe('# New text')
+    expect(view.state.doc.childCount).toBe(1)
+  })
+
+  it('routes Ctrl+Z through ProseMirror history and syncs the textarea', () => {
+    const view = createView('# Old')
+    const textarea = openHeadingSource(view)
+    inputSource(textarea, '# Changed')
+
+    textarea.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'z', ctrlKey: true, bubbles: true, cancelable: true })
+    )
+
+    expect(serialize(view.state.doc).trimEnd()).toBe('# Old')
+    expect(textarea.value).toBe('# Old')
+    expect(view.dom.querySelector('.heading-source-input')).toBe(textarea)
+  })
+
+  it('leaves the textarea active on Escape', () => {
+    const view = createView('# Old')
+    const textarea = openHeadingSource(view)
+
+    textarea.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })
+    )
+
+    expect(view.dom.querySelector('.heading-source-input')).toBe(textarea)
+    expect(document.activeElement).toBe(textarea)
+  })
+
+  it('deletes selected source and keeps a block-marker suffix as an ordinary paragraph', () => {
+    const view = createView('# Before - item')
+    const textarea = openHeadingSource(view)
+    textarea.setSelectionRange(8, 9)
+
+    textarea.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))
+
+    expect(view.state.doc.child(0).textContent).toBe('Before')
+    expect(view.state.doc.child(1).type.name).toBe('paragraph')
+    expect(view.state.doc.child(1).textContent).toBe('- item')
+  })
+})
 
 describe('parseHeadingSource', () => {
   it.each([
