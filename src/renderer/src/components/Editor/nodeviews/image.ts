@@ -63,6 +63,7 @@ export class ImageView {
     if (this.input || this.destroyed) return
     const input = document.createElement('input')
     input.className = 'lume-image-src'
+    input.setAttribute('aria-label', '图片地址')
     input.value = this.node.attrs.src
     input.addEventListener('input', this.handleInput)
     input.addEventListener('blur', this.handleBlur)

@@ -65,6 +65,7 @@ describe('ImageView integration', () => {
     const { view } = createView('![alt](old.png)')
     const input = openImageSource(view)
 
+    expect(input.getAttribute('aria-label')).toBe('图片地址')
     inputSource(input, 'new.png')
 
     expect(serialize(view.state.doc).trimEnd()).toBe('![alt](new.png)')
