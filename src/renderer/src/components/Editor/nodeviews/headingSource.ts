@@ -26,10 +26,12 @@ export function splitHeadingSource(
   selectionEnd: number
 ): SplitHeadingSource {
   const parsed = parseHeadingSource(source)
-  const prefixLength = parsed.level === null ? 0 : parsed.level + 1
+  const prefixLength = parsed.level === null ? 0 : source.length - parsed.text.length
   const bodyStart = Math.min(prefixLength, source.length)
-  const from = Math.max(bodyStart, Math.min(selectionStart, source.length))
-  const to = Math.max(from, Math.min(selectionEnd, source.length))
+  const selectionFrom = Math.min(selectionStart, selectionEnd)
+  const selectionTo = Math.max(selectionStart, selectionEnd)
+  const from = Math.max(bodyStart, Math.min(selectionFrom, source.length))
+  const to = Math.max(from, Math.min(selectionTo, source.length))
   return { headingSource: source.slice(0, from), paragraphSource: source.slice(to) }
 }
 

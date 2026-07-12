@@ -32,7 +32,11 @@ describe('splitHeadingSource', () => {
     ['# BeforeAfter', 8, 8, { headingSource: '# Before', paragraphSource: 'After' }],
     ['## Before middle after', 9, 17, { headingSource: '## Before', paragraphSource: 'after' }],
     ['### Title', 0, 0, { headingSource: '### ', paragraphSource: 'Title' }],
-    ['# Title', 7, 7, { headingSource: '# Title', paragraphSource: '' }]
+    ['# Title', 7, 7, { headingSource: '# Title', paragraphSource: '' }],
+    ['##   Title', 0, 0, { headingSource: '##   ', paragraphSource: 'Title' }],
+    ['##\tTitle', 0, 0, { headingSource: '##\t', paragraphSource: 'Title' }],
+    ['# Before middle after', 16, 8, { headingSource: '# Before', paragraphSource: 'after' }],
+    ['### Title', -10, 100, { headingSource: '### ', paragraphSource: '' }]
   ])('splits %j from selection %d-%d', (source, selectionStart, selectionEnd, expected) => {
     expect(splitHeadingSource(source, selectionStart, selectionEnd)).toEqual(expected)
   })
