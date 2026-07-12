@@ -1,3 +1,4 @@
+import { redo, undo } from 'prosemirror-history'
 import type { Node as PMNode } from 'prosemirror-model'
 import type { EditorView } from 'prosemirror-view'
 
@@ -5,6 +6,7 @@ export class ImageView {
   dom: HTMLElement
   private img: HTMLImageElement
   private input: HTMLInputElement | null = null
+  private destroyed = false
 
   private readonly handleImageClick = (): void => this.enterEdit()
 
@@ -23,9 +25,23 @@ export class ImageView {
   private readonly handleBlur = (): void => this.exitEdit()
 
   private readonly handleKeydown = (event: KeyboardEvent): void => {
-    if (event.key !== 'Enter') return
-    event.preventDefault()
-    this.input?.blur()
+    const modifier = event.ctrlKey || event.metaKey
+    if (modifier && event.key.toLowerCase() === 'z') {
+      event.preventDefault()
+      const command = event.shiftKey ? redo : undo
+      command(this.view.state, this.view.dispatch)
+      return
+    }
+    if (modifier && event.key.toLowerCase() === 'y') {
+      event.preventDefault()
+      redo(this.view.state, this.view.dispatch)
+      return
+    }
+    if (event.key === 'Enter') {
+      event.preventDefault()
+      this.exitEdit()
+      this.view.focus()
+    }
   }
 
   constructor(
@@ -44,7 +60,7 @@ export class ImageView {
   }
 
   private enterEdit(): void {
-    if (this.input || !this.dom.isConnected) return
+    if (this.input || this.destroyed) return
     const input = document.createElement('input')
     input.className = 'lume-image-src'
     input.value = this.node.attrs.src
@@ -61,7 +77,7 @@ export class ImageView {
     if (!input) return
     this.removeInputListeners(input)
     this.input = null
-    if (!this.dom.isConnected) return
+    if (this.destroyed) return
     this.renderImageAttrs()
     this.dom.replaceChildren(this.img)
   }
@@ -85,12 +101,13 @@ export class ImageView {
   update(node: PMNode): boolean {
     if (node.type !== this.node.type) return false
     this.node = node
+    if (this.destroyed) return true
     if (this.input) {
       if (this.input.value !== node.attrs.src) this.input.value = node.attrs.src
       return true
     }
     this.renderImageAttrs()
-    if (this.dom.isConnected && !this.dom.contains(this.img)) this.dom.replaceChildren(this.img)
+    if (!this.dom.contains(this.img)) this.dom.replaceChildren(this.img)
     return true
   }
 
@@ -99,6 +116,7 @@ export class ImageView {
   }
 
   destroy(): void {
+    this.destroyed = true
     this.img.removeEventListener('click', this.handleImageClick)
     if (this.input) {
       this.removeInputListeners(this.input)

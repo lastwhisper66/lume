@@ -13,9 +13,9 @@ interface ImageEditor {
   imageView: ImageView
 }
 
-function createImageEditor(source: string): ImageEditor {
+function createImageEditor(source: string, attach = true): ImageEditor {
   const mount = document.createElement('div')
-  document.body.appendChild(mount)
+  if (attach) document.body.appendChild(mount)
   let imageView: ImageView | undefined
   const view = new EditorView(mount, {
     state: EditorState.create({ doc: parse(source), plugins: buildPlugins() }),
@@ -85,6 +85,7 @@ describe('ImageView integration', () => {
     expect(view.dom.querySelector<HTMLImageElement>('.lume-image img')?.src).toContain('/new.png')
     expect(serialize(view.state.doc).trimEnd()).toBe('![alt](new.png)')
     expect(view.state.doc.childCount).toBe(1)
+    expect(document.activeElement).toBe(view.dom)
   })
 
   it('exits and restores the image when the URL field blurs', () => {
@@ -114,6 +115,76 @@ describe('ImageView integration', () => {
 
     expect(view.dom.querySelector('.lume-image-src')).toBe(input)
     expect(input.value).toBe('external.png')
+  })
+
+  it('supports editing, updating, and finishing while the live editor is detached', () => {
+    const editor = createImageEditor('![alt](old.png)', false)
+    views.push(editor.view)
+    const { view } = editor
+    const input = openImageSource(view)
+
+    inputSource(input, 'new.png')
+    expect(serialize(view.state.doc).trimEnd()).toBe('![alt](new.png)')
+    expect(view.dom.querySelector('.lume-image-src')).toBe(input)
+
+    input.dispatchEvent(new FocusEvent('blur'))
+
+    expect(view.dom.querySelector('.lume-image-src')).toBeNull()
+    expect(view.dom.querySelector<HTMLImageElement>('.lume-image img')?.getAttribute('src')).toBe(
+      'new.png'
+    )
+  })
+
+  it('routes URL-field undo and redo shortcuts through ProseMirror history', () => {
+    const { view } = createView('![alt](old.png)')
+    const input = openImageSource(view)
+    inputSource(input, 'new.png')
+
+    input.dispatchEvent(
+      new KeyboardEvent('keydown', {
+        key: 'z',
+        ctrlKey: true,
+        bubbles: true,
+        cancelable: true
+      })
+    )
+
+    expect(serialize(view.state.doc).trimEnd()).toBe('![alt](old.png)')
+    expect(input.value).toBe('old.png')
+    expect(view.dom.querySelector('.lume-image-src')).toBe(input)
+
+    input.dispatchEvent(
+      new KeyboardEvent('keydown', {
+        key: 'z',
+        metaKey: true,
+        shiftKey: true,
+        bubbles: true,
+        cancelable: true
+      })
+    )
+
+    expect(serialize(view.state.doc).trimEnd()).toBe('![alt](new.png)')
+    expect(input.value).toBe('new.png')
+
+    input.dispatchEvent(
+      new KeyboardEvent('keydown', {
+        key: 'z',
+        ctrlKey: true,
+        bubbles: true,
+        cancelable: true
+      })
+    )
+    input.dispatchEvent(
+      new KeyboardEvent('keydown', {
+        key: 'y',
+        ctrlKey: true,
+        bubbles: true,
+        cancelable: true
+      })
+    )
+
+    expect(serialize(view.state.doc).trimEnd()).toBe('![alt](new.png)')
+    expect(input.value).toBe('new.png')
   })
 
   it('renders current alt and title attributes after editing, including title removal', () => {
