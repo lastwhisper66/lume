@@ -4,6 +4,7 @@ import { TextSelection } from 'prosemirror-state'
 import type { EditorView, NodeView } from 'prosemirror-view'
 import { parse } from '../markdown/parser'
 import { serialize } from '../markdown/serializer'
+import { registerTransientEditFlush } from '../transientEdits'
 
 export interface ParsedHeadingSource {
   level: number | null
@@ -78,6 +79,8 @@ export class HeadingSourceView implements NodeView {
   private cleaningUp = false
   private dispatchingInput = false
   private unsyncedDraft = false
+  private flushingDraft = false
+  private unregisterTransientFlush: (() => void) | null = null
 
   constructor(
     private node: PMNode,
@@ -160,6 +163,7 @@ export class HeadingSourceView implements NodeView {
     input.addEventListener('input', this.handleInput)
     input.addEventListener('keydown', this.handleKeyDown)
     this.input = input
+    this.unregisterTransientFlush = registerTransientEditFlush(this.flushTransientDraft)
     this.applyHeadingPresentation()
     this.rendered.hidden = true
     this.dom.appendChild(input)
@@ -207,7 +211,7 @@ export class HeadingSourceView implements NodeView {
       return
     }
     if (modifier && event.key.toLowerCase() === 's') {
-      if (this.unsyncedDraft) this.commitInvalidDraft()
+      this.flushTransientDraft()
       return
     }
     if (event.key === 'Enter') {
@@ -249,6 +253,16 @@ export class HeadingSourceView implements NodeView {
     this.finishEditing()
   }
 
+  private flushTransientDraft = (): void => {
+    if (!this.unsyncedDraft || this.flushingDraft) return
+    this.flushingDraft = true
+    try {
+      this.commitInvalidDraft()
+    } finally {
+      this.flushingDraft = false
+    }
+  }
+
   private commitInvalidDraft(): boolean {
     const input = this.input
     const pos = this.getPos()
@@ -283,6 +297,8 @@ export class HeadingSourceView implements NodeView {
     if (!this.input) return
     this.cleaningUp = true
     const input = this.input
+    this.unregisterTransientFlush?.()
+    this.unregisterTransientFlush = null
     input.removeEventListener('blur', this.handleBlur)
     input.removeEventListener('input', this.handleInput)
     input.removeEventListener('keydown', this.handleKeyDown)

@@ -5,6 +5,7 @@ import { schema } from '../components/Editor/schema/gfm'
 import { buildPlugins } from '../components/Editor/plugins'
 import { parse } from '../components/Editor/markdown/parser'
 import { serialize } from '../components/Editor/markdown/serializer'
+import { flushTransientEdits } from '../components/Editor/transientEdits'
 
 export interface WorkspaceDocument {
   id: number
@@ -58,13 +59,13 @@ export const useWorkspace = create<WorkspaceStore>((set, get) => {
   }
 
   const saveDirtyDocument = async (): Promise<boolean> => {
-    let current = get().document
-    while (current?.dirty) {
+    while (true) {
+      flushTransientEdits()
+      const current = get().document
+      if (!current?.dirty) return true
       const result = await saveDocument(current)
       if (!result.saved) return false
-      current = get().document
     }
-    return true
   }
 
   const saveBeforeReplace = async (): Promise<boolean> => {
@@ -158,6 +159,7 @@ export const useWorkspace = create<WorkspaceStore>((set, get) => {
       }),
 
     saveActive: async () => {
+      flushTransientEdits()
       const current = get().document
       if (!current) return true
       const result = await saveDocument(current)

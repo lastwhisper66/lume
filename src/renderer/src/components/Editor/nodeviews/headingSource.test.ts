@@ -6,6 +6,7 @@ import { EditorState } from 'prosemirror-state'
 import { EditorView } from 'prosemirror-view'
 import { parse } from '../markdown/parser'
 import { serialize } from '../markdown/serializer'
+import { flushTransientEdits } from '../transientEdits'
 import {
   HeadingSourceView,
   parseHeadingSource,
@@ -172,6 +173,23 @@ describe('HeadingSourceView integration', () => {
     expect(defaultPreventedAtSave).toBe(false)
     expect(sourceSeenBySave).toBe('Save this draft')
     expect(view.state.doc.firstChild?.type.name).toBe('paragraph')
+  })
+
+  it('flushes an invalid draft before lifecycle teardown without double-dispatching', () => {
+    const view = createView('# Title')
+    const textarea = openHeadingSource(view)
+    const dispatch = vi.spyOn(view, 'dispatch')
+    inputSource(textarea, 'Lifecycle draft')
+
+    flushTransientEdits()
+
+    expect(view.state.doc.firstChild?.type.name).toBe('paragraph')
+    expect(view.state.doc.firstChild?.textContent).toBe('Lifecycle draft')
+    expect(dispatch).toHaveBeenCalledTimes(1)
+
+    textarea.dispatchEvent(new FocusEvent('blur'))
+    view.destroy()
+    expect(dispatch).toHaveBeenCalledTimes(1)
   })
 
   it('splits at Enter into a heading and paragraph and selects the paragraph start', () => {

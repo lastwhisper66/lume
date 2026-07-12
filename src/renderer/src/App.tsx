@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import Editor from './components/Editor'
+import { flushTransientEdits } from './components/Editor/transientEdits'
 import DocumentHeader from './components/Navigation/DocumentHeader'
 import StatusBar from './components/StatusBar/StatusBar'
 import Sidebar from './components/Workspace/Sidebar'
@@ -35,6 +36,7 @@ function App(): React.JSX.Element {
     window.addEventListener('dragover', prevent)
     window.addEventListener('drop', prevent)
     const disposeQueryClose = window.api.app.onQueryClose(() => {
+      flushTransientEdits()
       const hasDirty = useWorkspace.getState().document?.dirty === true
       if (!hasDirty || window.confirm('有未保存的文件，仍要退出吗？')) {
         window.api.app.confirmClose()
