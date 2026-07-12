@@ -52,12 +52,22 @@ describe('heading source helpers', () => {
     expect(cleanHeading?.firstChild?.marks).toEqual(markedBody.marks)
   })
 
-  it('does not add a duplicate legal prefix', () => {
-    const heading = schema.nodes.heading.create({ level: 2 }, schema.text('# Existing'))
-    const doc = schema.node('doc', null, [heading])
+  it('recognizes internal prefixes only when their level matches the heading', () => {
+    const bodyStartsWithMarker = schema.nodes.heading.create(
+      { level: 2 },
+      schema.text('# Existing')
+    )
+    const cleanDoc = schema.node('doc', null, [bodyStartsWithMarker])
+    const editableDoc = addHeadingPrefixes(cleanDoc)
+    const matchingPrefix = editableDoc.firstChild
 
-    expect(addHeadingPrefixes(doc).firstChild?.textContent).toBe('# Existing')
-    expect(doc.firstChild?.textContent).toBe('# Existing')
+    expect(editableDoc.firstChild?.textContent).toBe('## # Existing')
+    expect(headingPrefixLength(bodyStartsWithMarker)).toBe(0)
+    expect(headingBodyText(bodyStartsWithMarker)).toBe('# Existing')
+    expect(stripHeadingPrefixes(cleanDoc).firstChild?.textContent).toBe('# Existing')
+    expect(headingPrefixLength(matchingPrefix!)).toBe(3)
+    expect(headingBodyText(matchingPrefix!)).toBe('# Existing')
+    expect(stripHeadingPrefixes(editableDoc).firstChild?.textContent).toBe('# Existing')
   })
 
   it('returns body-only document text', () => {
@@ -71,6 +81,14 @@ describe('heading Markdown boundary', () => {
   it.each(['# One', '### Three', '###### Six #2'])('round-trips %j once', (source) => {
     const doc = parse(source)
     expect(doc.firstChild?.textContent).toBe(source)
+    expect(serialize(doc).trimEnd()).toBe(source)
+  })
+
+  it('preserves a body that starts with a different ATX marker', () => {
+    const source = '## # Existing'
+    const doc = parse(source)
+
+    expect(doc.firstChild?.textContent).toBe('## # Existing')
     expect(serialize(doc).trimEnd()).toBe(source)
   })
 })
