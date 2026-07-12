@@ -46,7 +46,6 @@ function mapDocument(node: PMNode, mapHeading: (heading: PMNode) => PMNode): PMN
 
 export function addHeadingPrefixes(doc: PMNode): PMNode {
   return mapDocument(doc, (heading) => {
-    if (parseInternalHeadingPrefix(heading)) return heading
     const prefix = heading.type.schema.text(headingPrefix(Number(heading.attrs.level)))
     return heading.copy(Fragment.from(prefix).append(heading.content))
   })
