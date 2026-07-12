@@ -2,6 +2,7 @@ import { Plugin } from 'prosemirror-state'
 import type { EditorState } from 'prosemirror-state'
 import { Decoration, DecorationSet } from 'prosemirror-view'
 import type { EditorView } from 'prosemirror-view'
+import { headingPrefixLength } from './headingSource'
 
 const INLINE_DELIMS: Record<string, string> = {
   strong: '**',
@@ -19,6 +20,39 @@ function markerWidget(text: string, extraClass = ''): (view: EditorView) => HTML
     el.setAttribute('contenteditable', 'false')
     return el
   }
+}
+
+function headingDecorations(state: EditorState, decos: Decoration[]): void {
+  const { $from } = state.selection
+  let activeHeadingPos: number | null = null
+
+  for (let depth = $from.depth; depth > 0; depth--) {
+    if ($from.node(depth).type.name === 'heading') {
+      activeHeadingPos = $from.before(depth)
+      break
+    }
+  }
+
+  state.doc.descendants((node, pos) => {
+    if (node.type.name !== 'heading') return true
+
+    const prefixLength = headingPrefixLength(node)
+    if (prefixLength > 0) {
+      decos.push(
+        Decoration.inline(pos + 1, pos + 1 + prefixLength, {
+          class: 'heading-source-marker'
+        })
+      )
+    }
+    if (pos === activeHeadingPos) {
+      decos.push(
+        Decoration.node(pos, pos + node.nodeSize, {
+          class: 'heading-source-active'
+        })
+      )
+    }
+    return false
+  })
 }
 
 /** 块级揭示：heading 的 #、blockquote 的 >、code_block 的围栏 */
@@ -129,6 +163,7 @@ export const syntaxRevealPlugin = new Plugin({
   props: {
     decorations(state) {
       const decos: Decoration[] = []
+      headingDecorations(state, decos)
       blockDecorations(state, decos)
       inlineDecorations(state, decos)
       linkDecorations(state, decos)

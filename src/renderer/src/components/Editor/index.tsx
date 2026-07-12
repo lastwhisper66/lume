@@ -4,7 +4,6 @@ import { useWorkspace } from '../../store/workspace'
 import { registerEditorView } from '../Outline/editorScroll'
 import { CodeBlockView } from './nodeviews/codeblock'
 import { ImageView } from './nodeviews/image'
-import { HeadingSourceView } from './nodeviews/headingSource'
 import 'prosemirror-tables/style/tables.css'
 
 export function Editor(): React.JSX.Element {
@@ -20,7 +19,6 @@ export function Editor(): React.JSX.Element {
     const view = new EditorView(mountRef.current, {
       state: editorState,
       nodeViews: {
-        heading: (node, view, getPos) => new HeadingSourceView(node, view, getPos),
         code_block: (node, view, getPos) => new CodeBlockView(node, view, getPos),
         image: (node, view, getPos) => new ImageView(node, view, getPos)
       },

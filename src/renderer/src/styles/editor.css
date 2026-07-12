@@ -54,31 +54,14 @@
 }
 .md-marker-block { display: block; }
 
-.heading-source-wrapper {
-  display: contents;
-}
-.lume-editor .ProseMirror > * + .heading-source-wrapper > .heading-source-rendered {
-  margin-top: 0.75em;
+.heading-source-marker {
+  display: none;
+  color: var(--lume-marker);
+  font-family: var(--lume-font-mono);
 }
 
-.heading-source-input {
-  display: block;
-  width: 100%;
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-  border: 0;
-  outline: none;
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  font-family: var(--lume-font-mono);
-  line-height: inherit;
-  resize: none;
-  overflow-x: hidden;
-  overflow-y: hidden;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
+.lume-editor .ProseMirror-focused .heading-source-active .heading-source-marker {
+  display: inline;
 }
 
 .lume-editor table {
