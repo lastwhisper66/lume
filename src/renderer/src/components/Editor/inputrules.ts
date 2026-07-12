@@ -29,11 +29,12 @@ const bulletListRule = wrappingInputRule(/^\s*([-+*])\s$/, schema.nodes.bullet_l
 const codeBlockRule = textblockTypeInputRule(/^```$/, schema.nodes.code_block)
 
 // "# " ~ "###### " → heading
-const headingRule = textblockTypeInputRule(
-  new RegExp('^(#{1,6})\\s$'),
-  schema.nodes.heading,
-  (match) => ({ level: match[1].length })
-)
+const headingRule = new InputRule(/^(#{1,6})\s$/, (state, match, start, end) => {
+  const level = match[1].length
+  return state.tr
+    .insertText(match[0], start, end)
+    .setBlockType(start, start + match[0].length, schema.nodes.heading, { level })
+})
 
 // "**x**" → strong
 function markInputRule(regexp: RegExp, markType: MarkType): InputRule {
