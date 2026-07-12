@@ -7,11 +7,13 @@ import { columnResizing, tableEditing } from 'prosemirror-tables'
 import type { Plugin } from 'prosemirror-state'
 import { keymapBindings } from './commands'
 import { buildInputRules } from './inputrules'
+import { headingNormalizationPlugin } from './headingNormalization'
 import { syntaxRevealPlugin } from './syntaxReveal'
 
 export function buildPlugins(): Plugin[] {
   return [
     buildInputRules(),
+    headingNormalizationPlugin,
     keymap(keymapBindings),
     keymap(baseKeymap),
     dropCursor(),
