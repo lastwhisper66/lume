@@ -1,5 +1,6 @@
 import { francAll } from 'franc-min'
 import type { Node as PMNode } from 'prosemirror-model'
+import { documentBodyText } from '../Editor/headingSource'
 
 const MIN_TEXT_LENGTH = 40
 const MIN_SCORE_GAP = 0.1
@@ -84,7 +85,7 @@ const FRANC_TO_BCP47 = Object.freeze<Record<string, string>>({
 })
 
 export function documentText(doc: PMNode | undefined): string {
-  return doc?.textBetween(0, doc.content.size, '\n', '\n').replace(/\s+/g, ' ').trim() ?? ''
+  return documentBodyText(doc, '\n').replace(/\s+/g, ' ').trim()
 }
 
 export function detectDocumentLanguage(text: string): string | null {

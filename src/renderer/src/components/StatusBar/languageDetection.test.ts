@@ -1,5 +1,16 @@
 import { describe, expect, it } from 'vitest'
-import { detectDocumentLanguage } from './languageDetection'
+import { parse } from '../Editor/markdown/parser'
+import { detectDocumentLanguage, documentText } from './languageDetection'
+
+describe('documentText', () => {
+  it('omits editable heading prefixes', () => {
+    expect(documentText(parse('## Heading\n\nParagraph'))).toBe('Heading Paragraph')
+  })
+
+  it('preserves hashes that belong to paragraph content', () => {
+    expect(documentText(parse('#Not a heading\n\nParagraph'))).toBe('#Not a heading Paragraph')
+  })
+})
 
 describe('detectDocumentLanguage', () => {
   it('detects English', () => {
