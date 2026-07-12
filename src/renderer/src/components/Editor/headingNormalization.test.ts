@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { EditorState, TextSelection } from 'prosemirror-state'
 import { parse } from './markdown/parser'
+import { schema } from './schema/gfm'
 import { headingNormalizationKey, headingNormalizationPlugin } from './headingNormalization'
 
 function createState(source: string): EditorState {
@@ -25,6 +26,26 @@ describe('heading normalization', () => {
 
     expect(state.doc.firstChild?.type.name).toBe('paragraph')
     expect(state.doc.firstChild?.textContent).toBe('#Title')
+  })
+
+  it('preserves marked body content when an invalid heading becomes a paragraph', () => {
+    const strong = schema.marks.strong.create()
+    const heading = schema.nodes.heading.create({ level: 1 }, [
+      schema.text('# '),
+      schema.text('Title', [strong])
+    ])
+    let state = EditorState.create({
+      doc: schema.node('doc', null, [heading]),
+      plugins: [headingNormalizationPlugin]
+    })
+
+    state = state.apply(state.tr.delete(2, 3))
+
+    const paragraph = state.doc.firstChild
+    expect(paragraph?.type.name).toBe('paragraph')
+    expect(paragraph?.textContent).toBe('#Title')
+    expect(paragraph?.lastChild?.text).toBe('Title')
+    expect(paragraph?.lastChild?.marks).toEqual([strong])
   })
 
   it('recovers a level-six heading after deleting one of seven hashes', () => {
@@ -83,5 +104,29 @@ describe('heading normalization', () => {
     expect(result.state.doc.child(1).type.name).toBe('paragraph')
     expect(result.transactions).toHaveLength(2)
     expect(result.transactions[1].getMeta(headingNormalizationKey)).toBe(true)
+  })
+
+  it('does not append normalization for a selection-only transaction', () => {
+    const state = createState('# Title')
+    const doc = state.doc
+
+    const result = state.applyTransaction(state.tr.setSelection(TextSelection.create(state.doc, 4)))
+
+    expect(result.transactions).toHaveLength(1)
+    expect(result.state.doc).toBe(doc)
+    expect(result.state.doc.eq(doc)).toBe(true)
+  })
+
+  it('leaves unrelated block types unchanged while normalizing a heading', () => {
+    const state = createState('```text\n# code\n```\n\n# Title')
+    const codeBlock = state.doc.child(0)
+    const headingPos = codeBlock.nodeSize
+
+    const next = state.apply(state.tr.delete(headingPos + 2, headingPos + 3))
+
+    expect(next.doc.child(0).type.name).toBe('code_block')
+    expect(next.doc.child(0).eq(codeBlock)).toBe(true)
+    expect(next.doc.child(1).type.name).toBe('paragraph')
+    expect(next.doc.child(1).textContent).toBe('#Title')
   })
 })
