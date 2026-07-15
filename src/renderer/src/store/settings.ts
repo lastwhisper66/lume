@@ -6,6 +6,7 @@ interface RendererSettingsStore {
   hydrated: boolean
   hydrate: () => Promise<void>
   setSidebarVisible: (visible: boolean) => Promise<void>
+  setSidebarWidth: (width: number) => Promise<void>
   setSpellcheckMode: (mode: SpellcheckMode, language?: string) => Promise<void>
   submitDetectedLanguage: (baseLanguage: string) => Promise<void>
 }
@@ -38,6 +39,11 @@ export const useAppSettings = create<RendererSettingsStore>((set) => ({
 
   setSidebarVisible: async (visible) => {
     const snapshot = await window.api.settings.setSidebarVisible(visible)
+    set({ snapshot, hydrated: true })
+  },
+
+  setSidebarWidth: async (width) => {
+    const snapshot = await window.api.settings.setSidebarWidth(width)
     set({ snapshot, hydrated: true })
   },
 

@@ -8,6 +8,7 @@ import type { ThemePayload } from './theme'
 import { buildAppMenu } from './menu'
 import { SettingsStore } from './settings'
 import { SpellcheckController } from './spellcheck'
+import { clampSidebarWidth } from '../shared/settings'
 
 const TITLE_BAR_HEIGHT = 38
 const LIGHT_TITLE_BAR = { color: '#f7f8fa', symbolColor: '#2b2b2b' }
@@ -338,6 +339,10 @@ app.whenReady().then(async () => {
   ipcMain.handle('settings:current', () => spellcheckController.snapshot())
   ipcMain.handle('settings:setSidebarVisible', async (_event, visible: unknown) => {
     await settingsStore.update({ sidebarVisible: visible === true })
+    return spellcheckController.snapshot()
+  })
+  ipcMain.handle('settings:setSidebarWidth', async (_event, width: unknown) => {
+    await settingsStore.update({ sidebarWidth: clampSidebarWidth(width) })
     return spellcheckController.snapshot()
   })
   ipcMain.handle('spellcheck:setMode', (_event, mode: unknown, language: unknown) =>

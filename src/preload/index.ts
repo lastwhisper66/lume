@@ -82,6 +82,8 @@ const api = {
     current: (): Promise<SettingsSnapshot> => ipcRenderer.invoke('settings:current'),
     setSidebarVisible: (visible: boolean): Promise<SettingsSnapshot> =>
       ipcRenderer.invoke('settings:setSidebarVisible', visible),
+    setSidebarWidth: (width: number): Promise<SettingsSnapshot> =>
+      ipcRenderer.invoke('settings:setSidebarWidth', width),
     setSpellcheckMode: (mode: SpellcheckMode, language?: string): Promise<SettingsSnapshot> =>
       ipcRenderer.invoke('spellcheck:setMode', mode, language),
     submitDetectedLanguage: (baseLanguage: string): Promise<SettingsSnapshot> =>

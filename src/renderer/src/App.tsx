@@ -6,6 +6,7 @@ import StatusBar from './components/StatusBar/StatusBar'
 import Sidebar from './components/Workspace/Sidebar'
 import { useAppSettings } from './store/settings'
 import { useWorkspace } from './store/workspace'
+import { clampSidebarWidth, SIDEBAR_DEFAULT_WIDTH } from '../../shared/settings'
 
 function App(): React.JSX.Element {
   const saveActive = useWorkspace((s) => s.saveActive)
@@ -15,9 +16,45 @@ function App(): React.JSX.Element {
   const hydrateSettings = useAppSettings((s) => s.hydrate)
   const sidebarVisible = useAppSettings((s) => s.snapshot?.sidebarVisible ?? false)
   const setSidebarVisible = useAppSettings((s) => s.setSidebarVisible)
+  const sidebarWidth = useAppSettings((s) => s.snapshot?.sidebarWidth ?? SIDEBAR_DEFAULT_WIDTH)
+  const setSidebarWidth = useAppSettings((s) => s.setSidebarWidth)
 
   const [dragging, setDragging] = useState(false)
   const dragDepth = useRef(0)
+
+  const [resizing, setResizing] = useState(false)
+  const [draftWidth, setDraftWidth] = useState(sidebarWidth)
+  const resizeState = useRef({ startX: 0, startWidth: sidebarWidth, width: sidebarWidth })
+
+  const beginResize = (e: React.MouseEvent<HTMLDivElement>): void => {
+    e.preventDefault()
+    resizeState.current = { startX: e.clientX, startWidth: sidebarWidth, width: sidebarWidth }
+    setDraftWidth(sidebarWidth)
+    setResizing(true)
+  }
+
+  useEffect(() => {
+    if (!resizing) return
+    const onMove = (e: MouseEvent): void => {
+      const state = resizeState.current
+      const next = clampSidebarWidth(state.startWidth + (e.clientX - state.startX))
+      state.width = next
+      setDraftWidth(next)
+    }
+    const onUp = (): void => {
+      setResizing(false)
+      const state = resizeState.current
+      if (state.width !== state.startWidth) void setSidebarWidth(state.width)
+    }
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+    return () => {
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+    }
+  }, [resizing, setSidebarWidth])
+
+  const effectiveSidebarWidth = resizing ? draftWidth : sidebarWidth
 
   useEffect(() => {
     void hydrateSettings()
@@ -85,7 +122,12 @@ function App(): React.JSX.Element {
 
   return (
     <div
-      className={'app-layout' + (sidebarVisible ? ' sidebar-visible' : '')}
+      className={
+        'app-layout' +
+        (sidebarVisible ? ' sidebar-visible' : '') +
+        (resizing ? ' sidebar-resizing' : '')
+      }
+      style={{ '--lume-sidebar-width': `${effectiveSidebarWidth}px` } as React.CSSProperties}
       onDragEnter={onDragEnter}
       onDragOver={onDragOver}
       onDragLeave={onDragLeave}
@@ -95,6 +137,14 @@ function App(): React.JSX.Element {
       <div className={'sidebar' + (sidebarVisible ? '' : ' sidebar-hidden')}>
         <Sidebar />
       </div>
+      {sidebarVisible && (
+        <div
+          className="sidebar-resizer"
+          role="separator"
+          aria-orientation="vertical"
+          onMouseDown={beginResize}
+        />
+      )}
       <div className="main-pane">
         <Editor />
         <StatusBar

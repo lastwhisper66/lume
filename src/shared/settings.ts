@@ -16,7 +16,12 @@ export interface SpellcheckSettings {
 export interface AppSettings extends ThemeSettings {
   spellcheck: SpellcheckSettings
   sidebarVisible: boolean
+  sidebarWidth: number
 }
+
+export const SIDEBAR_MIN_WIDTH = 180
+export const SIDEBAR_MAX_WIDTH = 600
+export const SIDEBAR_DEFAULT_WIDTH = 260
 
 export interface SettingsSnapshot extends AppSettings {
   availableLanguages: string[]
@@ -29,7 +34,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   dayTheme: 'light',
   nightTheme: 'dark',
   spellcheck: { mode: 'auto', language: null, detectedLanguage: null },
-  sidebarVisible: false
+  sidebarVisible: false,
+  sidebarWidth: SIDEBAR_DEFAULT_WIDTH
 }
 
 function stringOr(value: unknown, fallback: string): string {
@@ -38,6 +44,11 @@ function stringOr(value: unknown, fallback: string): string {
 
 function nullableString(value: unknown): string | null {
   return typeof value === 'string' && value.length > 0 ? value : null
+}
+
+export function clampSidebarWidth(value: unknown): number {
+  const width = typeof value === 'number' && Number.isFinite(value) ? value : SIDEBAR_DEFAULT_WIDTH
+  return Math.min(SIDEBAR_MAX_WIDTH, Math.max(SIDEBAR_MIN_WIDTH, Math.round(width)))
 }
 
 export function normalizeSettings(value: unknown): AppSettings {
@@ -59,7 +70,8 @@ export function normalizeSettings(value: unknown): AppSettings {
       language: nullableString(spellcheck.language),
       detectedLanguage: nullableString(spellcheck.detectedLanguage)
     },
-    sidebarVisible: raw.sidebarVisible === true
+    sidebarVisible: raw.sidebarVisible === true,
+    sidebarWidth: clampSidebarWidth(raw.sidebarWidth)
   }
 }
 
