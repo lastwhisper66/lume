@@ -1,7 +1,15 @@
-import { Plugin, TextSelection } from 'prosemirror-state'
+import { Plugin, PluginKey, TextSelection } from 'prosemirror-state'
 import type { EditorState } from 'prosemirror-state'
 import { Decoration, DecorationSet } from 'prosemirror-view'
 import type { EditorView } from 'prosemirror-view'
+
+// 链接右边界（doc 位置 to）在视觉上同时是「链接文本末尾」和「整段链接之后」。
+// 用 side 记录光标当前处于 URL 的哪一侧：
+//   textEnd   → 光标在 URL 左侧（链接文本末尾）：揭示 `](url)`，→ 进 URL 开头
+//   afterLink → 光标在 URL 右侧（整段链接之后）：收起揭示，光标落在链接之后，→ 越过链接
+type LinkNavState = { pos: number; side: 'textEnd' | 'afterLink' } | null
+
+const linkNavKey = new PluginKey<LinkNavState>('linkNav')
 
 const INLINE_DELIMS: Record<string, string> = {
   strong: '**',
@@ -146,7 +154,41 @@ function linkOpenWidget(): (view: EditorView) => HTMLElement {
   }
 }
 
-/** 生成 `](url "title")` 的可编辑闭合 widget：URL 与 title 都在内联输入框里改 */
+/** 把光标移入链接编辑区（默认停在末尾，atStart 时停在开头） */
+export function focusLinkInput(input: HTMLElement, atStart = false): void {
+  input.focus()
+  const selection = window.getSelection()
+  if (!selection) return
+  const range = document.createRange()
+  range.selectNodeContents(input)
+  range.collapse(atStart)
+  selection.removeAllRanges()
+  selection.addRange(range)
+}
+
+/** 光标是否折叠在可编辑区最开头 */
+function caretAtStart(el: HTMLElement): boolean {
+  const selection = window.getSelection()
+  if (!selection || !selection.isCollapsed || !selection.focusNode) return false
+  if (!el.contains(selection.focusNode)) return false
+  const range = document.createRange()
+  range.selectNodeContents(el)
+  range.setEnd(selection.focusNode, selection.focusOffset)
+  return range.toString().length === 0
+}
+
+/** 光标是否折叠在可编辑区最末尾 */
+function caretAtEnd(el: HTMLElement): boolean {
+  const selection = window.getSelection()
+  if (!selection || !selection.isCollapsed || !selection.focusNode) return false
+  if (!el.contains(selection.focusNode)) return false
+  const range = document.createRange()
+  range.selectNodeContents(el)
+  range.setStart(selection.focusNode, selection.focusOffset)
+  return range.toString().length === 0
+}
+
+/** 生成 `](url "title")` 的可编辑闭合 widget：URL 与 title 都在内联可编辑区里改 */
 function linkTargetWidget(
   from: number,
   to: number,
@@ -156,20 +198,21 @@ function linkTargetWidget(
     const wrapper = document.createElement('span')
     wrapper.className = 'md-link-marker md-link-target'
 
-    // 括号是纯装饰、不进文档：设为不可编辑，但不要把整个 wrapper 变成
-    // contenteditable=false 的“孤岛”，否则里面的 <input> 无法获得焦点。
     const open = document.createElement('span')
     open.className = 'md-link-punct'
     open.setAttribute('contenteditable', 'false')
     open.textContent = ']('
     wrapper.appendChild(open)
 
-    const input = document.createElement('input')
+    // 用内联 contenteditable span 而非 <input>：为空时零宽度（没有占位空白），
+    // 超长 URL 可随容器宽度逐字符软换行。
+    const input = document.createElement('span')
     input.className = 'md-link-input'
+    input.setAttribute('contenteditable', 'true')
+    input.setAttribute('role', 'textbox')
     input.setAttribute('aria-label', '链接地址')
     input.setAttribute('spellcheck', 'false')
-    input.value = linkTargetString(target.href, target.title)
-    input.size = Math.max(1, input.value.length)
+    input.textContent = linkTargetString(target.href, target.title)
     wrapper.appendChild(input)
 
     const close = document.createElement('span')
@@ -182,36 +225,55 @@ function linkTargetWidget(
     const commit = (): void => {
       if (committed) return
       committed = true
-      commitLinkTarget(view, from, to, input.value, target)
+      commitLinkTarget(view, from, to, input.textContent ?? '', target)
     }
 
-    input.addEventListener('input', () => {
-      input.size = Math.max(1, input.value.length)
-    })
+    // 提交并把光标退回文档中链接末尾。skip=true 时记录该位置，
+    // 提交并把光标退回文档中链接右边界。side 记录光标落在 URL 的哪一侧，
+    // 供方向键插件判断下一步是进入 URL、越过链接还是退回链接文本。
+    const leaveToDoc = (side: 'textEnd' | 'afterLink'): void => {
+      commit()
+      view.focus()
+      const pos = Math.min(to, view.state.doc.content.size)
+      const tr = view.state.tr
+        .setSelection(TextSelection.create(view.state.doc, pos))
+        .setMeta(linkNavKey, { pos, side })
+      view.dispatch(tr)
+    }
+
     // 屏蔽 mousedown/mouseup/click，避免 ProseMirror 改动选区、把焦点抢回编辑器。
-    // 点在括号上时主动把焦点移进输入框；点在输入框上则走原生定位光标。
+    // 点在括号上时主动把光标移进编辑区；点在编辑区里则走原生定位光标。
     wrapper.addEventListener('mousedown', (event) => {
       event.stopPropagation()
-      if (event.target !== input) {
+      const clickTarget = event.target as Node
+      if (clickTarget !== input && !input.contains(clickTarget)) {
         event.preventDefault()
-        input.focus()
+        focusLinkInput(input, clickTarget === open)
       }
     })
     wrapper.addEventListener('mouseup', (event) => event.stopPropagation())
     wrapper.addEventListener('click', (event) => event.stopPropagation())
     input.addEventListener('blur', commit)
     input.addEventListener('keydown', (event) => {
+      // 编辑 URL 时完全接管键盘：阻止冒泡，避免 ProseMirror 的方向键/选区处理
+      // 把光标从编辑区里拽走（否则按 → 会被反复吸回开头）。
+      event.stopPropagation()
       if (event.key === 'Enter') {
         event.preventDefault()
-        commit()
-        view.focus()
-        const pos = Math.min(to, view.state.doc.content.size)
-        view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, pos)))
+        leaveToDoc('afterLink')
       } else if (event.key === 'Escape') {
         event.preventDefault()
         committed = true
-        input.value = linkTargetString(target.href, target.title)
+        input.textContent = linkTargetString(target.href, target.title)
         view.focus()
+      } else if (event.key === 'ArrowLeft' && caretAtStart(input)) {
+        // 已在开头再向左：退回链接文本末尾
+        event.preventDefault()
+        leaveToDoc('textEnd')
+      } else if (event.key === 'ArrowRight' && caretAtEnd(input)) {
+        // 已在末尾再向右：越过整段链接
+        event.preventDefault()
+        leaveToDoc('afterLink')
       }
     })
     return wrapper
@@ -227,13 +289,24 @@ function linkDecorations(state: EditorState, decos: Decoration[]): void {
   const blockStart = $from.start()
   const selFrom = selection.from
   const selTo = selection.to
+  const nav = linkNavKey.getState(state)
 
   let rangeStart: number | null = null
   let current: LinkTarget | null = null
   let pos = blockStart
 
   const flush = (to: number): void => {
-    if (rangeStart !== null && current !== null && rangeStart <= selTo && to >= selFrom) {
+    // 光标恰好停在链接右边界、且逻辑上位于 URL 右侧（afterLink）时，收起揭示：
+    // 让链接渲染为普通文本，光标干净地落在整段链接之后，而不是被卡在 `](url)` 之前。
+    const collapsedAfter =
+      nav?.side === 'afterLink' && nav.pos === to && selFrom === to && selTo === to
+    if (
+      rangeStart !== null &&
+      current !== null &&
+      rangeStart <= selTo &&
+      to >= selFrom &&
+      !collapsedAfter
+    ) {
       decos.push(
         Decoration.widget(rangeStart, linkOpenWidget(), {
           side: -1,
@@ -286,6 +359,61 @@ export const linkClickPlugin = new Plugin({
     }
   }
 })
+
+/** pos 是否恰好是某个 link 的右边界（左侧有 link、右侧没有同一个 link） */
+function isLinkRightBoundary(state: EditorState, pos: number): boolean {
+  const linkType = state.schema.marks.link
+  const $pos = state.doc.resolve(pos)
+  const before = $pos.nodeBefore ? linkType.isInSet($pos.nodeBefore.marks) : undefined
+  if (!before) return false
+  const after = $pos.nodeAfter ? linkType.isInSet($pos.nodeAfter.marks) : undefined
+  return !after || !after.eq(before)
+}
+
+/**
+ * 纯方向键进出 URL 编辑区：
+ * - 插件 state 跟踪光标在链接右边界处于 URL 的哪一侧（textEnd / afterLink），
+ *   自然移动时按移动方向推断，程序化退出时由 widget 通过 meta 明确写入。
+ * - textEnd 一侧揭示 `](url)`，→ 进入 URL；afterLink 一侧收起揭示，→ 直接越过链接。
+ *   焦点已在 URL 编辑区时 view.hasFocus() 为假，直接放行，避免把光标反复吸回开头。
+ */
+export function linkNavPlugin(): Plugin<LinkNavState> {
+  return new Plugin<LinkNavState>({
+    key: linkNavKey,
+    state: {
+      init: () => null,
+      apply(tr, value, oldState, newState) {
+        const meta = tr.getMeta(linkNavKey) as LinkNavState | undefined
+        if (meta !== undefined) return meta
+        const sel = newState.selection
+        if (!(sel instanceof TextSelection) || !sel.empty) return null
+        const pos = sel.from
+        if (!isLinkRightBoundary(newState, pos)) return null
+        const oldPos = oldState.selection.from
+        if (oldPos < pos) return { pos, side: 'textEnd' }
+        if (oldPos > pos) return { pos, side: 'afterLink' }
+        return value && value.pos === pos ? value : { pos, side: 'textEnd' }
+      }
+    },
+    props: {
+      handleKeyDown(view, event) {
+        // 只有「从链接文本末尾向右」进入 URL。afterLink 一侧揭示已收起、没有可进入的
+        // 编辑区，直接放行默认行为让光标越过链接。
+        if (event.key !== 'ArrowRight') return false
+        if (!view.hasFocus()) return false // 焦点已在 URL 编辑区，交给它自己处理
+        const sel = view.state.selection
+        if (!(sel instanceof TextSelection) || !sel.empty) return false
+        const nav = linkNavKey.getState(view.state)
+        if (!nav || nav.pos !== sel.from || nav.side !== 'textEnd') return false
+        const input = view.dom.querySelector<HTMLElement>('.md-link-input')
+        if (!input) return false
+        focusLinkInput(input, true)
+        event.preventDefault()
+        return true
+      }
+    }
+  })
+}
 
 export const syntaxRevealPlugin = new Plugin({
   props: {

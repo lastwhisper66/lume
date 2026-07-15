@@ -6,7 +6,7 @@ import { EditorView } from 'prosemirror-view'
 import { parse } from './markdown/parser'
 import { serialize } from './markdown/serializer'
 import { buildPlugins } from './plugins'
-import { linkClickPlugin, linkTargetString, parseLinkTarget } from './syntaxReveal'
+import { linkClickPlugin, linkNavPlugin, linkTargetString, parseLinkTarget } from './syntaxReveal'
 
 describe('parseLinkTarget', () => {
   it('reads a bare destination', () => {
@@ -88,21 +88,79 @@ describe('link reveal integration', () => {
     view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, pos)))
   }
 
-  it('reveals the link target in an editable input', () => {
+  // Drive the real linkNavPlugin instance living inside the view's state.
+  function pressArrow(view: EditorView, key: 'ArrowLeft' | 'ArrowRight'): boolean {
+    const plugin = linkNavPlugin()
+    return (
+      plugin.props.handleKeyDown!.call(plugin, view, new KeyboardEvent('keydown', { key })) ?? false
+    )
+  }
+
+  it('reveals the link target in an editable field', () => {
     const view = createView('[text](http://a.com)')
     selectInsideLink(view, 3)
 
-    const input = view.dom.querySelector<HTMLInputElement>('.md-link-input')
+    const input = view.dom.querySelector<HTMLElement>('.md-link-input')
     expect(input).not.toBeNull()
-    expect(input?.value).toBe('http://a.com')
+    expect(input?.getAttribute('contenteditable')).toBe('true')
+    expect(input?.textContent).toBe('http://a.com')
+  })
+
+  it('enters the URL editor when pressing ArrowRight at the end of the link text', () => {
+    const view = createView('[text](http://a.com)')
+    selectInsideLink(view, 5)
+
+    expect(pressArrow(view, 'ArrowRight')).toBe(true)
+  })
+
+  it('does not enter the URL editor from the middle of the link text', () => {
+    const view = createView('[text](http://a.com)')
+    selectInsideLink(view, 3)
+
+    expect(pressArrow(view, 'ArrowRight')).toBe(false)
+  })
+
+  it('lets ArrowLeft move into the link text from the text-end side', () => {
+    const view = createView('[text](http://a.com)')
+    // Arriving at pos 5 from the left marks the caret as the text-end side.
+    selectInsideLink(view, 5)
+
+    expect(pressArrow(view, 'ArrowLeft')).toBe(false)
+  })
+
+  it('collapses the reveal when the caret rests just after the link (afterLink side)', () => {
+    const view = createView('[text](http://a.com) tail')
+    view.focus()
+    view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, 8)))
+    view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, 5)))
+
+    // Approaching the boundary from the right hides the `](url)` editor entirely...
+    expect(view.dom.querySelector('.md-link-input')).toBeNull()
+    // ...and ArrowRight passes the link instead of diving into the URL.
+    expect(pressArrow(view, 'ArrowRight')).toBe(false)
+  })
+
+  it('keeps the reveal shown when the caret is at the link text end (textEnd side)', () => {
+    const view = createView('[text](http://a.com)')
+    selectInsideLink(view, 5)
+
+    expect(view.dom.querySelector('.md-link-input')).not.toBeNull()
+  })
+
+  it('does not grab arrow keys while the URL editor already has focus', () => {
+    const view = createView('[text](http://a.com)')
+    selectInsideLink(view, 5)
+    view.dom.querySelector<HTMLElement>('.md-link-input')!.focus()
+
+    expect(pressArrow(view, 'ArrowRight')).toBe(false)
   })
 
   it('commits an edited URL and title back to the link mark on blur', () => {
     const view = createView('[text](http://a.com)')
     selectInsideLink(view, 3)
 
-    const input = view.dom.querySelector<HTMLInputElement>('.md-link-input')!
-    input.value = 'http://b.com "docs"'
+    const input = view.dom.querySelector<HTMLElement>('.md-link-input')!
+    input.textContent = 'http://b.com "docs"'
     input.dispatchEvent(new FocusEvent('blur'))
 
     expect(serialize(view.state.doc).trimEnd()).toBe('[text](http://b.com "docs")')
@@ -112,8 +170,8 @@ describe('link reveal integration', () => {
     const view = createView('[text](http://a.com)')
     selectInsideLink(view, 3)
 
-    const input = view.dom.querySelector<HTMLInputElement>('.md-link-input')!
-    input.value = ''
+    const input = view.dom.querySelector<HTMLElement>('.md-link-input')!
+    input.textContent = ''
     input.dispatchEvent(new FocusEvent('blur'))
 
     expect(serialize(view.state.doc).trimEnd()).toBe('text')
