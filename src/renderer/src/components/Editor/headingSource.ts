@@ -21,19 +21,14 @@ export function headingPrefix(level: number): string {
   return `${'#'.repeat(Math.max(1, Math.min(6, level)))} `
 }
 
-function parseInternalHeadingPrefix(node: PMNode): ParsedAtxHeading | null {
-  if (node.type.name !== 'heading') return null
-  const parsed = parseAtxHeading(node.textContent)
-  return parsed?.level === Number(node.attrs.level) ? parsed : null
-}
-
 export function headingPrefixLength(node: PMNode): number {
-  return parseInternalHeadingPrefix(node)?.prefixLength ?? 0
+  if (node.type.name !== 'heading') return 0
+  return parseAtxHeading(node.textContent)?.prefixLength ?? 0
 }
 
 export function headingBodyText(node: PMNode): string {
   if (node.type.name !== 'heading') return node.textContent
-  return parseInternalHeadingPrefix(node)?.body ?? node.textContent
+  return parseAtxHeading(node.textContent)?.body ?? node.textContent
 }
 
 function mapDocument(node: PMNode, mapHeading: (heading: PMNode) => PMNode): PMNode {
@@ -46,7 +41,7 @@ function mapDocument(node: PMNode, mapHeading: (heading: PMNode) => PMNode): PMN
 
 export function addHeadingPrefixes(doc: PMNode): PMNode {
   return mapDocument(doc, (heading) => {
-    if (parseInternalHeadingPrefix(heading)) return heading
+    if (parseAtxHeading(heading.textContent)) return heading
     const prefix = heading.type.schema.text(headingPrefix(Number(heading.attrs.level)))
     return heading.copy(Fragment.from(prefix).append(heading.content))
   })
