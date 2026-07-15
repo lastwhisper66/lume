@@ -2,14 +2,16 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { history, undo } from 'prosemirror-history'
-import { EditorState } from 'prosemirror-state'
+import { EditorState, TextSelection } from 'prosemirror-state'
 import { EditorView } from 'prosemirror-view'
 import { parse } from '../markdown/parser'
 import { serialize } from '../markdown/serializer'
 import { flushTransientEdits } from '../transientEdits'
 import {
   HeadingSourceView,
+  headingRevealPlugin,
   parseHeadingSource,
+  resolveArrowNavigation,
   sourceCaretOffset,
   splitHeadingSource
 } from './headingSource'
@@ -30,7 +32,10 @@ function createHeadingView(source: string): EditorView {
   const mount = document.createElement('div')
   document.body.appendChild(mount)
   const view = new EditorView(mount, {
-    state: EditorState.create({ doc: parse(source), plugins: [history()] }),
+    state: EditorState.create({
+      doc: parse(source),
+      plugins: [history(), headingRevealPlugin()]
+    }),
     nodeViews: {
       heading: (node, editorView, getPos) => new HeadingSourceView(node, editorView, getPos)
     },
@@ -259,6 +264,111 @@ describe('HeadingSourceView integration', () => {
     expect(view.state.doc.child(1).type.name).toBe('paragraph')
     expect(view.state.doc.child(1).textContent).toBe('- item')
   })
+
+  it('reveals the source when the selection enters the heading via keyboard', async () => {
+    const view = createView('Intro\n\n# Heading')
+    const headingPos = view.state.doc.child(0).nodeSize + 1
+    view.focus()
+    view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, headingPos)))
+    await Promise.resolve()
+
+    const textarea = view.dom.querySelector<HTMLTextAreaElement>('.heading-source-input')
+    expect(textarea).toBeInstanceOf(HTMLTextAreaElement)
+    expect(textarea?.value).toBe('# Heading')
+    expect(textarea?.selectionStart).toBe(0)
+    expect(textarea?.selectionEnd).toBe(0)
+  })
+
+  it('moves into the previous block on ArrowUp from the heading', () => {
+    const view = createView('Intro\n\n# Heading')
+    const textarea = openHeadingSource(view)
+
+    textarea.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'ArrowUp', bubbles: true, cancelable: true })
+    )
+
+    expect(view.dom.querySelector('.heading-source-input')).toBeNull()
+    expect(view.state.selection.$from.parent.textContent).toBe('Intro')
+  })
+
+  it('moves into the next block on ArrowDown from the heading', () => {
+    const view = createView('# Heading\n\nBody')
+    const textarea = openHeadingSource(view)
+
+    textarea.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, cancelable: true })
+    )
+
+    expect(view.dom.querySelector('.heading-source-input')).toBeNull()
+    expect(view.state.selection.$from.parent.textContent).toBe('Body')
+  })
+
+  it('moves before the heading on ArrowLeft at the start of the source', () => {
+    const view = createView('Intro\n\n# Heading')
+    const textarea = openHeadingSource(view)
+    textarea.setSelectionRange(0, 0)
+
+    textarea.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true, cancelable: true })
+    )
+
+    expect(view.dom.querySelector('.heading-source-input')).toBeNull()
+    expect(view.state.selection.$from.parent.textContent).toBe('Intro')
+  })
+
+  it('moves after the heading on ArrowRight at the end of the source', () => {
+    const view = createView('# Heading\n\nBody')
+    const textarea = openHeadingSource(view)
+    textarea.setSelectionRange(textarea.value.length, textarea.value.length)
+
+    textarea.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true, cancelable: true })
+    )
+
+    expect(view.dom.querySelector('.heading-source-input')).toBeNull()
+    expect(view.state.selection.$from.parent.textContent).toBe('Body')
+  })
+
+  it('keeps the textarea active on ArrowRight inside the source', () => {
+    const view = createView('# Heading')
+    const textarea = openHeadingSource(view)
+    textarea.setSelectionRange(2, 2)
+
+    textarea.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true, cancelable: true })
+    )
+
+    expect(view.dom.querySelector('.heading-source-input')).toBe(textarea)
+    expect(document.activeElement).toBe(textarea)
+  })
+
+  it('stays in the source and moves the caret before the marker on ArrowUp at the top heading', () => {
+    const view = createView('# Heading')
+    const textarea = openHeadingSource(view)
+    textarea.setSelectionRange(3, 3)
+
+    textarea.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'ArrowUp', bubbles: true, cancelable: true })
+    )
+
+    expect(view.dom.querySelector('.heading-source-input')).toBe(textarea)
+    expect(textarea.selectionStart).toBe(0)
+    expect(textarea.selectionEnd).toBe(0)
+  })
+
+  it('stays in the source and moves the caret to the end on ArrowDown at the last heading', () => {
+    const view = createView('# Heading')
+    const textarea = openHeadingSource(view)
+    textarea.setSelectionRange(3, 3)
+
+    textarea.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, cancelable: true })
+    )
+
+    expect(view.dom.querySelector('.heading-source-input')).toBe(textarea)
+    expect(textarea.selectionStart).toBe(textarea.value.length)
+    expect(textarea.selectionEnd).toBe(textarea.value.length)
+  })
 })
 
 describe('parseHeadingSource', () => {
@@ -276,12 +386,59 @@ describe('parseHeadingSource', () => {
 })
 
 describe('sourceCaretOffset', () => {
+  it('places the source caret before the marker at the very start of the text', () => {
+    expect(sourceCaretOffset(4, 0, 20)).toBe(0)
+  })
+
   it('places the source caret after the heading prefix at the clicked text offset', () => {
     expect(sourceCaretOffset(4, 5, 20)).toBe(9)
   })
 
   it('clamps the caret to the available source', () => {
     expect(sourceCaretOffset(4, 20, 12)).toBe(12)
+  })
+})
+
+describe('resolveArrowNavigation', () => {
+  const base = {
+    collapsed: true,
+    atStart: false,
+    atEnd: false,
+    firstRow: false,
+    lastRow: false
+  }
+
+  it('does nothing when the selection is not collapsed', () => {
+    expect(
+      resolveArrowNavigation({ ...base, key: 'ArrowLeft', collapsed: false, atStart: true })
+    ).toBeNull()
+    expect(
+      resolveArrowNavigation({ ...base, key: 'ArrowDown', collapsed: false, lastRow: true })
+    ).toBeNull()
+  })
+
+  it('moves before the heading on ArrowLeft only at the start', () => {
+    expect(resolveArrowNavigation({ ...base, key: 'ArrowLeft', atStart: true })).toBe('before')
+    expect(resolveArrowNavigation({ ...base, key: 'ArrowLeft', atStart: false })).toBeNull()
+  })
+
+  it('moves after the heading on ArrowRight only at the end', () => {
+    expect(resolveArrowNavigation({ ...base, key: 'ArrowRight', atEnd: true })).toBe('after')
+    expect(resolveArrowNavigation({ ...base, key: 'ArrowRight', atEnd: false })).toBeNull()
+  })
+
+  it('moves before the heading on ArrowUp only from the first visual row', () => {
+    expect(resolveArrowNavigation({ ...base, key: 'ArrowUp', firstRow: true })).toBe('before')
+    expect(resolveArrowNavigation({ ...base, key: 'ArrowUp', firstRow: false })).toBeNull()
+  })
+
+  it('moves after the heading on ArrowDown only from the last visual row', () => {
+    expect(resolveArrowNavigation({ ...base, key: 'ArrowDown', lastRow: true })).toBe('after')
+    expect(resolveArrowNavigation({ ...base, key: 'ArrowDown', lastRow: false })).toBeNull()
+  })
+
+  it('ignores unrelated keys', () => {
+    expect(resolveArrowNavigation({ ...base, key: 'Enter', atStart: true, atEnd: true })).toBeNull()
   })
 })
 

@@ -1,10 +1,38 @@
 import { closeHistory, redo, undo } from 'prosemirror-history'
 import type { Node as PMNode, Schema } from 'prosemirror-model'
-import { TextSelection } from 'prosemirror-state'
+import { Plugin, Selection, TextSelection } from 'prosemirror-state'
 import type { EditorView, NodeView } from 'prosemirror-view'
 import { parse } from '../markdown/parser'
 import { serialize } from '../markdown/serializer'
 import { registerTransientEditFlush } from '../transientEdits'
+
+const headingViewRegistry = new WeakMap<HTMLElement, HeadingSourceView>()
+
+// Reveals a heading's Markdown source whenever the cursor lands inside it, no
+// matter whether the selection change came from a transaction or from native
+// arrow-key navigation (which never calls NodeView.setSelection).
+export function headingRevealPlugin(): Plugin {
+  return new Plugin({
+    view() {
+      return {
+        update(view, prevState) {
+          const { selection } = view.state
+          if (prevState.selection.eq(selection) && prevState.doc.eq(view.state.doc)) return
+          if (!view.hasFocus()) return
+          if (!(selection instanceof TextSelection)) return
+          const $head = selection.$head
+          if ($head.parent.type.name !== 'heading') return
+          if (selection.$anchor.parent !== $head.parent) return
+          const headingDom = view.nodeDOM($head.before($head.depth))
+          if (!(headingDom instanceof HTMLElement)) return
+          headingViewRegistry
+            .get(headingDom)
+            ?.revealForSelection(selection.$anchor.parentOffset, $head.parentOffset)
+        }
+      }
+    }
+  })
+}
 
 export interface ParsedHeadingSource {
   level: number | null
@@ -42,7 +70,33 @@ export function sourceCaretOffset(
   renderedOffset: number,
   sourceLength: number
 ): number {
+  if (renderedOffset <= 0) return 0
   return Math.min(prefixLength + renderedOffset, sourceLength)
+}
+
+export interface ArrowNavigationState {
+  key: string
+  collapsed: boolean
+  atStart: boolean
+  atEnd: boolean
+  firstRow: boolean
+  lastRow: boolean
+}
+
+export function resolveArrowNavigation(state: ArrowNavigationState): 'before' | 'after' | null {
+  if (!state.collapsed) return null
+  switch (state.key) {
+    case 'ArrowLeft':
+      return state.atStart ? 'before' : null
+    case 'ArrowRight':
+      return state.atEnd ? 'after' : null
+    case 'ArrowUp':
+      return state.firstRow ? 'before' : null
+    case 'ArrowDown':
+      return state.lastRow ? 'after' : null
+    default:
+      return null
+  }
 }
 
 function renderedTextOffsetAtPoint(root: HTMLElement, x: number, y: number): number {
@@ -59,6 +113,61 @@ function renderedTextOffsetAtPoint(root: HTMLElement, x: number, y: number): num
   range.setStart(root, 0)
   range.setEnd(node, offset)
   return range.toString().length
+}
+
+function caretRowInfo(textarea: HTMLTextAreaElement): { firstRow: boolean; lastRow: boolean } {
+  const style = getComputedStyle(textarea)
+  const mirror = document.createElement('div')
+  const copyProps = [
+    'boxSizing',
+    'paddingTop',
+    'paddingRight',
+    'paddingBottom',
+    'paddingLeft',
+    'borderTopWidth',
+    'borderRightWidth',
+    'borderBottomWidth',
+    'borderLeftWidth',
+    'fontFamily',
+    'fontSize',
+    'fontWeight',
+    'fontStyle',
+    'lineHeight',
+    'letterSpacing',
+    'textTransform',
+    'textIndent',
+    'wordBreak',
+    'tabSize'
+  ] as const
+  for (const prop of copyProps) {
+    mirror.style[prop] = style[prop]
+  }
+  mirror.style.position = 'absolute'
+  mirror.style.top = '0'
+  mirror.style.left = '-9999px'
+  mirror.style.visibility = 'hidden'
+  mirror.style.height = 'auto'
+  mirror.style.width = `${textarea.clientWidth}px`
+  mirror.style.whiteSpace = 'pre-wrap'
+  mirror.style.overflowWrap = 'anywhere'
+
+  const { value, selectionStart } = textarea
+  mirror.appendChild(document.createTextNode(value.slice(0, selectionStart)))
+  const marker = document.createElement('span')
+  mirror.appendChild(marker)
+  mirror.appendChild(document.createTextNode(value.slice(selectionStart)))
+  document.body.appendChild(mirror)
+
+  const parsedLineHeight = parseFloat(style.lineHeight)
+  const lineHeight =
+    Number.isFinite(parsedLineHeight) && parsedLineHeight > 0
+      ? parsedLineHeight
+      : marker.offsetHeight || 1
+  const caretRow = Math.round(marker.offsetTop / lineHeight)
+  const totalRows = Math.max(1, Math.round(mirror.scrollHeight / lineHeight))
+  document.body.removeChild(mirror)
+
+  return { firstRow: caretRow <= 0, lastRow: caretRow >= totalRows - 1 }
 }
 
 function parseSingleBlock(source: string): PMNode | null {
@@ -81,6 +190,9 @@ export class HeadingSourceView implements NodeView {
   private unsyncedDraft = false
   private flushingDraft = false
   private unregisterTransientFlush: (() => void) | null = null
+  private pendingSelection: { from: number; to: number } | null = null
+  private openScheduled = false
+  private destroyed = false
 
   constructor(
     private node: PMNode,
@@ -93,7 +205,8 @@ export class HeadingSourceView implements NodeView {
     this.rendered = this.createRenderedHeading(node.attrs.level as number)
     this.rendered.appendChild(this.contentDOM)
     this.dom.appendChild(this.rendered)
-    this.rendered.addEventListener('click', this.startEditing)
+    this.rendered.addEventListener('click', this.handleRenderedClick)
+    headingViewRegistry.set(this.dom, this)
   }
 
   update(node: PMNode): boolean {
@@ -123,9 +236,43 @@ export class HeadingSourceView implements NodeView {
     return this.input !== null || this.cleaningUp
   }
 
+  revealForSelection(anchorOffset: number, headOffset: number): void {
+    if (this.input || this.cleaningUp || this.destroyed) return
+    this.pendingSelection = {
+      from: Math.min(anchorOffset, headOffset),
+      to: Math.max(anchorOffset, headOffset)
+    }
+    if (this.openScheduled) return
+    this.openScheduled = true
+    queueMicrotask(() => {
+      this.openScheduled = false
+      const pending = this.pendingSelection
+      this.pendingSelection = null
+      if (
+        !pending ||
+        this.input ||
+        this.cleaningUp ||
+        this.destroyed ||
+        !this.selectionInsideHeading()
+      ) {
+        return
+      }
+      this.startEditing(pending.from, pending.to)
+    })
+  }
+
+  private selectionInsideHeading(): boolean {
+    const pos = this.getPos()
+    if (pos === undefined) return false
+    const head = this.view.state.selection.$head.pos
+    return head > pos && head < pos + this.node.nodeSize
+  }
+
   destroy(): void {
+    this.destroyed = true
     this.finishEditing()
-    this.rendered.removeEventListener('click', this.startEditing)
+    this.rendered.removeEventListener('click', this.handleRenderedClick)
+    headingViewRegistry.delete(this.dom)
   }
 
   private createRenderedHeading(level: number): HTMLHeadingElement {
@@ -141,8 +288,8 @@ export class HeadingSourceView implements NodeView {
     rendered.hidden = oldRendered.hidden
     rendered.appendChild(this.contentDOM)
     oldRendered.replaceWith(rendered)
-    oldRendered.removeEventListener('click', this.startEditing)
-    rendered.addEventListener('click', this.startEditing)
+    oldRendered.removeEventListener('click', this.handleRenderedClick)
+    rendered.addEventListener('click', this.handleRenderedClick)
     this.rendered = rendered
   }
 
@@ -150,9 +297,14 @@ export class HeadingSourceView implements NodeView {
     return serialize(node.type.schema.node('doc', null, [node])).trimEnd()
   }
 
-  private startEditing = (event: MouseEvent): void => {
+  private handleRenderedClick = (event: MouseEvent): void => {
     if (this.input) return
     const renderedOffset = renderedTextOffsetAtPoint(this.contentDOM, event.clientX, event.clientY)
+    this.startEditing(renderedOffset, renderedOffset)
+  }
+
+  private startEditing(fromRenderedOffset: number, toRenderedOffset: number): void {
+    if (this.input) return
     const input = document.createElement('textarea')
     input.className = 'heading-source-input'
     input.value = this.serializeNode(this.node)
@@ -171,8 +323,9 @@ export class HeadingSourceView implements NodeView {
     this.resizeObserver.observe(input)
     input.focus()
     const prefixLength = (this.node.attrs.level as number) + 1
-    const offset = sourceCaretOffset(prefixLength, renderedOffset, input.value.length)
-    input.setSelectionRange(offset, offset)
+    const from = sourceCaretOffset(prefixLength, fromRenderedOffset, input.value.length)
+    const to = sourceCaretOffset(prefixLength, toRenderedOffset, input.value.length)
+    input.setSelectionRange(Math.min(from, to), Math.max(from, to))
     this.resizeInput()
   }
 
@@ -217,7 +370,61 @@ export class HeadingSourceView implements NodeView {
     if (event.key === 'Enter') {
       event.preventDefault()
       this.splitAtSelection()
+      return
     }
+    if (
+      event.key === 'ArrowUp' ||
+      event.key === 'ArrowDown' ||
+      event.key === 'ArrowLeft' ||
+      event.key === 'ArrowRight'
+    ) {
+      this.handleArrowNavigation(event)
+    }
+  }
+
+  private handleArrowNavigation(event: KeyboardEvent): void {
+    const input = this.input
+    if (!input) return
+    if (event.shiftKey || event.ctrlKey || event.metaKey || event.altKey) return
+    let firstRow = true
+    let lastRow = true
+    if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
+      const info = caretRowInfo(input)
+      firstRow = info.firstRow
+      lastRow = info.lastRow
+    }
+    const direction = resolveArrowNavigation({
+      key: event.key,
+      collapsed: input.selectionStart === input.selectionEnd,
+      atStart: input.selectionStart === 0,
+      atEnd: input.selectionEnd === input.value.length,
+      firstRow,
+      lastRow
+    })
+    if (!direction) return
+    event.preventDefault()
+    this.moveSelectionToAdjacentBlock(direction)
+  }
+
+  private moveSelectionToAdjacentBlock(direction: 'before' | 'after'): void {
+    const input = this.input
+    const pos = this.getPos()
+    if (!input || pos === undefined) return
+    const { state } = this.view
+    const nodeEnd = pos + this.node.nodeSize
+    const boundary = direction === 'before' ? pos : nodeEnd
+    const selection = Selection.near(state.doc.resolve(boundary), direction === 'before' ? -1 : 1)
+    // No block in that direction: keep editing and move the caret to the source
+    // edge instead of dispatching (which would flicker back into this heading).
+    if (selection.from >= pos && selection.to <= nodeEnd) {
+      const caret = direction === 'before' ? 0 : input.value.length
+      input.setSelectionRange(caret, caret)
+      return
+    }
+    const tr = state.tr.setSelection(selection).scrollIntoView()
+    this.finishEditing()
+    this.view.focus()
+    this.view.dispatch(tr)
   }
 
   private splitAtSelection(): void {
