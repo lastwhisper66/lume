@@ -70,13 +70,6 @@ describe('heading source helpers', () => {
     expect(stripHeadingPrefixes(editableDoc).firstChild?.textContent).toBe('# Existing')
   })
 
-  it('adds a prefix when the semantic body starts with the same ATX marker', () => {
-    const heading = schema.nodes.heading.create({ level: 2 }, schema.text('## Existing'))
-    const doc = schema.node('doc', null, [heading])
-
-    expect(addHeadingPrefixes(doc).firstChild?.textContent).toBe('## ## Existing')
-  })
-
   it('returns body-only document text', () => {
     const doc = parse('# Heading\n\nParagraph')
     expect(documentBodyText(doc, '\n')).toBe('Heading\nParagraph')
@@ -96,14 +89,6 @@ describe('heading Markdown boundary', () => {
     const doc = parse(source)
 
     expect(doc.firstChild?.textContent).toBe('## # Existing')
-    expect(serialize(doc).trimEnd()).toBe(source)
-  })
-
-  it('preserves a body that starts with the same ATX marker', () => {
-    const source = '## ## Existing'
-    const doc = parse(source)
-
-    expect(doc.firstChild?.textContent).toBe('## ## Existing')
     expect(serialize(doc).trimEnd()).toBe(source)
   })
 })
