@@ -32,11 +32,7 @@ const parser = new MarkdownParser(schema, md, {
   },
   heading: { block: 'heading', getAttrs: (tok) => ({ level: +tok.tag.slice(1) }) },
   code_block: { block: 'code_block', noCloseToken: true },
-  fence: {
-    block: 'code_block',
-    getAttrs: (tok) => ({ params: tok.info || '' }),
-    noCloseToken: true
-  },
+  fence: { block: 'code_block', getAttrs: (tok) => ({ params: tok.info || '' }), noCloseToken: true },
   hr: { node: 'horizontal_rule' },
   image: {
     node: 'image',
