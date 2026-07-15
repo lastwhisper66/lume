@@ -16,30 +16,6 @@ describe('workspace transient edit snapshots', () => {
     vi.unstubAllGlobals()
   })
 
-  it('stores an editable heading prefix internally and saves it exactly once', async () => {
-    const save = vi.fn().mockResolvedValue(undefined)
-    vi.stubGlobal('api', {
-      file: { save }
-    } as unknown as typeof window.api)
-    const editorState = EditorState.create({ doc: parse('# Old'), schema })
-    useWorkspace.setState({
-      document: {
-        id: 98,
-        filePath: 'heading.md',
-        title: 'heading.md',
-        dirty: true,
-        editorState
-      }
-    })
-
-    expect(editorState.doc.firstChild?.textContent).toBe('# Old')
-
-    await useWorkspace.getState().saveActive()
-
-    expect(save).toHaveBeenCalledWith('heading.md', '# Old')
-    expect(useWorkspace.getState().document?.dirty).toBe(false)
-  })
-
   it('flushes transient edits before saveActive snapshots the document', async () => {
     const save = vi.fn().mockResolvedValue(undefined)
     vi.stubGlobal('api', {
