@@ -3,7 +3,6 @@ import type Token from 'markdown-it/lib/token.mjs'
 import { MarkdownParser } from 'prosemirror-markdown'
 import { Fragment } from 'prosemirror-model'
 import type { Node as PMNode } from 'prosemirror-model'
-import { addHeadingPrefixes } from '../headingSource'
 import { schema } from '../schema/gfm'
 
 const md = MarkdownIt('default', { html: false, linkify: true })
@@ -104,5 +103,5 @@ function applyTaskLists(node: PMNode): PMNode {
 export function parse(markdown: string): PMNode {
   const doc = parser.parse(markdown)
   if (!doc) throw new Error('Markdown 解析失败')
-  return addHeadingPrefixes(applyTaskLists(doc))
+  return applyTaskLists(doc)
 }

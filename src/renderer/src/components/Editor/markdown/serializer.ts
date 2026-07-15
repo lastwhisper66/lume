@@ -1,6 +1,5 @@
 import { defaultMarkdownSerializer, MarkdownSerializer } from 'prosemirror-markdown'
 import type { Node as PMNode } from 'prosemirror-model'
-import { stripHeadingPrefixes } from '../headingSource'
 import { serializeTable } from './tables'
 
 export const serializer = new MarkdownSerializer(
@@ -32,5 +31,5 @@ export const serializer = new MarkdownSerializer(
 )
 
 export function serialize(doc: PMNode): string {
-  return serializer.serialize(stripHeadingPrefixes(doc))
+  return serializer.serialize(doc)
 }
