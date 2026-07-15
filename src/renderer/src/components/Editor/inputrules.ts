@@ -3,16 +3,36 @@ import {
   wrappingInputRule,
   textblockTypeInputRule,
   smartQuotes,
-  emDash,
   ellipsis,
   InputRule
 } from 'prosemirror-inputrules'
 import type { Plugin } from 'prosemirror-state'
-import type { MarkType } from 'prosemirror-model'
+import type { MarkType, NodeType } from 'prosemirror-model'
 import { schema } from './schema/gfm'
 
 // "> " → blockquote
 const blockQuoteRule = wrappingInputRule(/^\s*>\s$/, schema.nodes.blockquote)
+
+// "---" / "***" / "___" (on their own line) → 分隔行
+function horizontalRuleRule(nodeType: NodeType): InputRule {
+  return new InputRule(/^(?:---|\*\*\*|___)$/, (state, _match, start, end) => {
+    const $start = state.doc.resolve(start)
+    // 仅当所在块是段落（避免 setext 标题下划线歧义与表格/代码块等场景）
+    if ($start.parent.type.name !== 'paragraph') return null
+    const index = $start.index(-1)
+    if (!$start.node(-1).canReplaceWith(index, index, nodeType)) return null
+    const tr = state.tr.insert(start - 1, nodeType.create())
+    tr.delete(tr.mapping.map(start), tr.mapping.map(end))
+    return tr
+  })
+}
+const hrRule = horizontalRuleRule(schema.nodes.horizontal_rule)
+
+// "--" → em dash（—），但不吃掉块首的 "--"（那是 "---" 分隔行的前两个字符）
+const emDashRule = new InputRule(/--$/, (state, _match, start, end) => {
+  if (state.doc.resolve(start).parentOffset === 0) return null
+  return state.tr.insertText('—', start, end)
+})
 
 // "1. " → 有序列表
 const orderedListRule = wrappingInputRule(
@@ -63,7 +83,8 @@ export function buildInputRules(): Plugin {
     rules: [
       ...smartQuotes,
       ellipsis,
-      emDash,
+      hrRule,
+      emDashRule,
       blockQuoteRule,
       orderedListRule,
       bulletListRule,

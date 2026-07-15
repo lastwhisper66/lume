@@ -5,6 +5,7 @@ import { registerEditorView } from '../Outline/editorScroll'
 import { CodeBlockView } from './nodeviews/codeblock'
 import { ImageView } from './nodeviews/image'
 import { HeadingSourceView } from './nodeviews/headingSource'
+import { HorizontalRuleView } from './nodeviews/horizontalRuleSource'
 import 'prosemirror-tables/style/tables.css'
 
 export function Editor(): React.JSX.Element {
@@ -21,6 +22,7 @@ export function Editor(): React.JSX.Element {
       state: editorState,
       nodeViews: {
         heading: (node, view, getPos) => new HeadingSourceView(node, view, getPos),
+        horizontal_rule: (node, view, getPos) => new HorizontalRuleView(node, view, getPos),
         code_block: (node, view, getPos) => new CodeBlockView(node, view, getPos),
         image: (node, view, getPos) => new ImageView(node, view, getPos)
       },
