@@ -8,6 +8,7 @@ import type { Plugin } from 'prosemirror-state'
 import { keymapBindings } from './commands'
 import { buildInputRules } from './inputrules'
 import { syntaxRevealPlugin, linkClickPlugin, linkNavPlugin } from './syntaxReveal'
+import { inlineSourceRevealPlugin } from './inlineSourceReveal'
 import { headingRevealPlugin } from './nodeviews/headingSource'
 import { horizontalRuleRevealPlugin } from './nodeviews/horizontalRuleSource'
 
@@ -22,6 +23,7 @@ export function buildPlugins(): Plugin[] {
     tableEditing(),
     history(),
     syntaxRevealPlugin,
+    inlineSourceRevealPlugin(),
     linkClickPlugin,
     linkNavPlugin(),
     headingRevealPlugin(),

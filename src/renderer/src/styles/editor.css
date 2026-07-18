@@ -63,6 +63,21 @@
   display: block;
 }
 
+/* 揭示态的行内源码：光标进入标记片段时，该片段以裸 Markdown 呈现且可编辑。
+   保留空白、随容器换行；分隔符用等宽字体和 marker 色暗示「这是语法源码」。 */
+.md-inline-source {
+  font-family: var(--lume-font-mono);
+  color: var(--lume-marker);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* 方案 B：inner 文本携带真实标记（<strong>/<em>/<code>/<s>）。给它正文色，让格式化内容与
+   灰色分隔符区分开，形成 Typora 风格的半渲染观感。 */
+.md-inline-source :is(strong, em, s, code) {
+  color: var(--lume-text);
+}
+
 .md-link-marker {
   color: var(--lume-marker);
   font-family: var(--lume-font-mono);

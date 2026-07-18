@@ -12,6 +12,11 @@ export const serializer = new MarkdownSerializer(
       }
       state.renderContent(node)
     },
+    // 揭示态的行内片段：内容已是裸 Markdown 源码，原样写出（不转义），
+    // 使得即便在揭示中途保存，输出的 Markdown 依然正确。
+    inline_source(state, node) {
+      state.text(node.textContent, false)
+    },
     table: serializeTable,
     // 表格由 serializeTable 整体处理，行/单元格不会被单独递归，提供 no-op 兜底
     table_row() {

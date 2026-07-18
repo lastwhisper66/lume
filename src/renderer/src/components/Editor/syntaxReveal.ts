@@ -11,13 +11,6 @@ type LinkNavState = { pos: number; side: 'textEnd' | 'afterLink' } | null
 
 const linkNavKey = new PluginKey<LinkNavState>('linkNav')
 
-const INLINE_DELIMS: Record<string, string> = {
-  strong: '**',
-  em: '*',
-  code: '`',
-  strikethrough: '~~'
-}
-
 /** 生成一个灰色、不可编辑的语法符号 widget */
 function markerWidget(text: string, extraClass = ''): (view: EditorView) => HTMLElement {
   return () => {
@@ -43,48 +36,7 @@ function blockDecorations(state: EditorState, decos: Decoration[]): void {
   }
 }
 
-/** 行内揭示：光标所在文本块中，与选区相交的标记范围两侧显示分隔符 */
-function inlineDecorations(state: EditorState, decos: Decoration[]): void {
-  const { selection } = state
-  const { $from } = selection
-  const parent = $from.parent
-  if (!parent.isTextblock) return
-
-  const blockStart = $from.start()
-  const selFrom = selection.from
-  const selTo = selection.to
-
-  for (const markName of Object.keys(INLINE_DELIMS)) {
-    const delim = INLINE_DELIMS[markName]
-    const ranges: Array<[number, number]> = []
-    let rangeStart: number | null = null
-    let pos = blockStart
-
-    parent.forEach((child) => {
-      const hasMark = child.marks.some((m) => m.type.name === markName)
-      if (hasMark && rangeStart === null) {
-        rangeStart = pos
-      } else if (!hasMark && rangeStart !== null) {
-        ranges.push([rangeStart, pos])
-        rangeStart = null
-      }
-      pos += child.nodeSize
-    })
-    if (rangeStart !== null) ranges.push([rangeStart, pos])
-
-    for (const [from, to] of ranges) {
-      // 与选区相交（含光标贴边）才揭示
-      if (from <= selTo && to >= selFrom) {
-        decos.push(
-          Decoration.widget(from, markerWidget(delim), { side: -1, key: `${markName}-o-${from}` })
-        )
-        decos.push(
-          Decoration.widget(to, markerWidget(delim), { side: 1, key: `${markName}-c-${to}` })
-        )
-      }
-    }
-  }
-}
+/** 行内揭示已由 inlineSourceReveal.ts 的可编辑源码节点接管，此处不再注入 widget。 */
 
 interface LinkTarget {
   href: string
@@ -420,7 +372,6 @@ export const syntaxRevealPlugin = new Plugin({
     decorations(state) {
       const decos: Decoration[] = []
       blockDecorations(state, decos)
-      inlineDecorations(state, decos)
       linkDecorations(state, decos)
       return DecorationSet.create(state.doc, decos)
     }

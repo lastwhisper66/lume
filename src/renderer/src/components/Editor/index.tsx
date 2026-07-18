@@ -6,6 +6,7 @@ import { CodeBlockView } from './nodeviews/codeblock'
 import { ImageView } from './nodeviews/image'
 import { HeadingSourceView } from './nodeviews/headingSource'
 import { HorizontalRuleView } from './nodeviews/horizontalRuleSource'
+import { isTransientTransaction } from './transientEdits'
 import 'prosemirror-tables/style/tables.css'
 
 export function Editor(): React.JSX.Element {
@@ -27,9 +28,12 @@ export function Editor(): React.JSX.Element {
         image: (node, view, getPos) => new ImageView(node, view, getPos)
       },
       dispatchTransaction(tr) {
-        const newState = view.state.apply(tr)
+        // 用 applyTransaction 拿到本轮全部事务（含 appendTransaction 追加的揭示/收起），
+        // 只有「非透明且改动了文档」的事务才算真实内容改动，用于 dirty 判定。
+        const { state: newState, transactions } = view.state.applyTransaction(tr)
         view.updateState(newState)
-        updateDocumentState(documentId, newState)
+        const contentChanged = transactions.some((t) => t.docChanged && !isTransientTransaction(t))
+        updateDocumentState(documentId, newState, contentChanged)
       }
     })
     const unregisterEditorView = registerEditorView(view)

@@ -26,7 +26,7 @@ interface WorkspaceStore {
   openFile: (path: string) => Promise<boolean>
   openFileByDialog: () => Promise<void>
   openDropped: (files: File[]) => Promise<void>
-  updateDocumentState: (documentId: number, state: EditorState) => void
+  updateDocumentState: (documentId: number, state: EditorState, contentChanged?: boolean) => void
   saveActive: () => Promise<boolean>
 }
 
@@ -145,15 +145,17 @@ export const useWorkspace = create<WorkspaceStore>((set, get) => {
       })
     },
 
-    updateDocumentState: (documentId, state) =>
+    updateDocumentState: (documentId, state, contentChanged) =>
       set((workspace) => {
         const current = workspace.document
         if (current?.id !== documentId) return {}
+        // contentChanged 未传时退回旧行为（按文档引用是否变化判定），保持向后兼容。
+        const changed = contentChanged ?? state.doc !== current.editorState.doc
         return {
           document: {
             ...current,
             editorState: state,
-            dirty: current.dirty || state.doc !== current.editorState.doc
+            dirty: current.dirty || changed
           }
         }
       }),
