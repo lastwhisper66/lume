@@ -6,6 +6,7 @@
   box-sizing: border-box;
   background: var(--lume-bg);
   color: var(--lume-text);
+  position: relative;
 }
 
 .lume-editor .ProseMirror {
@@ -199,4 +200,100 @@
   background: var(--lume-bg-code);
   color: var(--lume-text);
   border: 1px solid var(--lume-border);
+}
+
+/* ── 表格：浮动工具栏 ────────────────────────────────────────────────────── */
+.lume-table-toolbar {
+  position: absolute;
+  z-index: 20;
+  display: none;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  background: var(--lume-bg-elevated);
+  border: 1px solid var(--lume-border-strong);
+  border-radius: 8px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.16);
+  user-select: none;
+}
+.lume-table-toolbar-sep {
+  width: 1px;
+  align-self: stretch;
+  margin: 2px 3px;
+  background: var(--lume-border);
+}
+.lume-table-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--lume-text);
+  cursor: pointer;
+}
+.lume-table-btn:hover:not(:disabled) {
+  background: var(--lume-bg-hover);
+}
+.lume-table-btn.is-active {
+  background: var(--lume-bg-active);
+  color: var(--lume-accent);
+}
+.lume-table-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+/* ── 表格：右键菜单 ──────────────────────────────────────────────────────── */
+.lume-table-menu {
+  position: fixed;
+  z-index: 1000;
+  min-width: 168px;
+  padding: 4px;
+  background: var(--lume-bg-elevated);
+  border: 1px solid var(--lume-border-strong);
+  border-radius: 8px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.22);
+  user-select: none;
+}
+.lume-table-menu-sep {
+  height: 1px;
+  margin: 4px 6px;
+  background: var(--lume-border);
+}
+.lume-table-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 5px 8px;
+  border: none;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--lume-text);
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+.lume-table-menu-item:hover:not(:disabled) {
+  background: var(--lume-bg-hover);
+}
+.lume-table-menu-item.is-active {
+  color: var(--lume-accent);
+}
+.lume-table-menu-item:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.lume-table-menu-icon {
+  display: inline-flex;
+  width: 16px;
+  height: 16px;
+  color: var(--lume-text-muted);
+}
+.lume-table-menu-label {
+  flex: 1;
 }

@@ -3,10 +3,23 @@ import { Schema } from 'prosemirror-model'
 import { tableNodes } from 'prosemirror-tables'
 
 // GFM 表格：单元格只含 inline 内容（Markdown 表格单元格是单行）
+// align 是「按列对齐」（null/left/center/right），存在每个单元格上，
+// 序列化时读表头行推导分隔行（:--- / :---: / ---:）。
 const tNodes = tableNodes({
   tableGroup: 'block',
   cellContent: 'inline*',
-  cellAttributes: {}
+  cellAttributes: {
+    align: {
+      default: null,
+      getFromDOM(dom) {
+        const value = (dom as HTMLElement).style.textAlign
+        return value === 'left' || value === 'center' || value === 'right' ? value : null
+      },
+      setDOMAttr(value, attrs) {
+        if (value) attrs.style = `text-align: ${value};${attrs.style ? ' ' + attrs.style : ''}`
+      }
+    }
+  }
 })
 
 // 给 list_item 增加 checked 属性（null 普通项 / true|false 勾选态）

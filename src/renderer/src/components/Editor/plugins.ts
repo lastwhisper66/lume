@@ -11,6 +11,7 @@ import { syntaxRevealPlugin, linkClickPlugin, linkNavPlugin } from './syntaxReve
 import { inlineSourceRevealPlugin } from './inlineSourceReveal'
 import { headingRevealPlugin } from './nodeviews/headingSource'
 import { horizontalRuleRevealPlugin } from './nodeviews/horizontalRuleSource'
+import { tableControlsPlugin } from './tableControls'
 
 export function buildPlugins(): Plugin[] {
   return [
@@ -27,6 +28,7 @@ export function buildPlugins(): Plugin[] {
     linkClickPlugin,
     linkNavPlugin(),
     headingRevealPlugin(),
-    horizontalRuleRevealPlugin()
+    horizontalRuleRevealPlugin(),
+    tableControlsPlugin()
   ]
 }

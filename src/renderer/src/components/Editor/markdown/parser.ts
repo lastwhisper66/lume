@@ -14,6 +14,14 @@ function listIsTight(tokens: Token[], i: number): boolean {
   return false
 }
 
+/** 从 markdown-it 表格单元格 token 的 style="text-align:..." 读出对齐 */
+function alignFromToken(tok: Token): 'left' | 'center' | 'right' | null {
+  const style = tok.attrGet('style')
+  if (!style) return null
+  const m = /text-align:\s*(left|center|right)/.exec(style)
+  return m ? (m[1] as 'left' | 'center' | 'right') : null
+}
+
 const parser = new MarkdownParser(schema, md, {
   blockquote: { block: 'blockquote' },
   paragraph: { block: 'paragraph' },
@@ -52,8 +60,8 @@ const parser = new MarkdownParser(schema, md, {
   thead: { ignore: true },
   tbody: { ignore: true },
   tr: { block: 'table_row' },
-  th: { block: 'table_header' },
-  td: { block: 'table_cell' },
+  th: { block: 'table_header', getAttrs: (tok) => ({ align: alignFromToken(tok) }) },
+  td: { block: 'table_cell', getAttrs: (tok) => ({ align: alignFromToken(tok) }) },
 
   // 标记
   em: { mark: 'em' },
