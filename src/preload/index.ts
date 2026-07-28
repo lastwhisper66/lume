@@ -26,7 +26,11 @@ const api = {
   workspace: {
     openFolder: (): Promise<{ root: string; tree: FileNode[] } | null> =>
       ipcRenderer.invoke('workspace:openFolder'),
+    openFolderPath: (path: string): Promise<{ root: string; tree: FileNode[] } | null> =>
+      ipcRenderer.invoke('workspace:openFolderPath', path),
     openFile: (): Promise<string | null> => ipcRenderer.invoke('workspace:openFile'),
+    prepareRecentFile: (path: string): Promise<boolean> =>
+      ipcRenderer.invoke('workspace:prepareRecentFile', path),
     openDropped: (paths: string[]): Promise<DroppedResult> =>
       ipcRenderer.invoke('workspace:openDropped', paths)
   },
@@ -74,6 +78,10 @@ const api = {
       ipcRenderer.invoke('settings:setSidebarVisible', visible),
     setSidebarWidth: (width: number): Promise<SettingsSnapshot> =>
       ipcRenderer.invoke('settings:setSidebarWidth', width),
+    removeRecent: (kind: 'file' | 'folder', path: string): Promise<SettingsSnapshot> =>
+      ipcRenderer.invoke('settings:removeRecent', kind, path),
+    clearRecents: (kind: 'file' | 'folder'): Promise<SettingsSnapshot> =>
+      ipcRenderer.invoke('settings:clearRecents', kind),
     setSpellcheckMode: (mode: SpellcheckMode, language?: string): Promise<SettingsSnapshot> =>
       ipcRenderer.invoke('spellcheck:setMode', mode, language),
     submitDetectedLanguage: (baseLanguage: string): Promise<SettingsSnapshot> =>

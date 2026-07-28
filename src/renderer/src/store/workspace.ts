@@ -25,6 +25,8 @@ interface WorkspaceStore {
   openFolder: () => Promise<void>
   openFile: (path: string) => Promise<boolean>
   openFileByDialog: () => Promise<void>
+  openRecentFile: (path: string) => Promise<void>
+  openRecentFolder: (path: string) => Promise<void>
   openDropped: (files: File[]) => Promise<void>
   updateDocumentState: (documentId: number, state: EditorState, contentChanged?: boolean) => void
   saveActive: () => Promise<boolean>
@@ -136,6 +138,28 @@ export const useWorkspace = create<WorkspaceStore>((set, get) => {
         const path = await window.api.workspace.openFile()
         if (!path) return
         await replaceDocument(path)
+      }),
+
+    openRecentFile: (path) =>
+      enqueueOpen(async () => {
+        const ok = await window.api.workspace.prepareRecentFile(path)
+        if (!ok) {
+          window.alert(`文件不存在，已从最近列表移除：\n${path}`)
+          await window.api.settings.removeRecent('file', path)
+          return
+        }
+        await replaceDocument(path)
+      }),
+
+    openRecentFolder: (path) =>
+      enqueueOpen(async () => {
+        const res = await window.api.workspace.openFolderPath(path)
+        if (!res) {
+          window.alert(`文件夹不存在，已从最近列表移除：\n${path}`)
+          await window.api.settings.removeRecent('folder', path)
+          return
+        }
+        set({ root: res.root, tree: res.tree })
       }),
 
     openDropped: (files) => {

@@ -7,7 +7,7 @@ import { ThemeManager } from './theme'
 import type { ThemePayload } from './theme'
 import { SettingsStore } from './settings'
 import { SpellcheckController } from './spellcheck'
-import { clampSidebarWidth } from '../shared/settings'
+import { clampSidebarWidth, pushRecent, removeRecent } from '../shared/settings'
 
 const TITLE_BAR_HEIGHT = 38
 const LIGHT_TITLE_BAR = { color: '#f7f8fa', symbolColor: '#2b2b2b' }
@@ -143,6 +143,22 @@ function assertInWorkspace(p: string): string {
 const settingsStore = new SettingsStore(join(app.getPath('userData'), 'settings.json'))
 const themeManager = new ThemeManager(settingsStore)
 
+/** 把一个文件路径记入「最近打开的文件」（所有成为当前文档的文件都走 file:read）。 */
+function recordRecentFile(path: string): void {
+  const resolved = resolve(path)
+  void settingsStore.update({
+    recentFiles: pushRecent(settingsStore.getState().recentFiles, resolved)
+  })
+}
+
+/** 把一个文件夹路径记入「最近打开的文件夹」。 */
+function recordRecentFolder(path: string): void {
+  const resolved = resolve(path)
+  void settingsStore.update({
+    recentFolders: pushRecent(settingsStore.getState().recentFolders, resolved)
+  })
+}
+
 /** 把当前有效主题推给所有窗口 */
 async function pushTheme(): Promise<void> {
   const payload = await themeManager.currentCss()
@@ -247,8 +263,29 @@ app.whenReady().then(async () => {
     if (canceled || !filePaths[0]) return null
     const root = filePaths[0]
     workspaceRoots.add(root)
+    recordRecentFolder(root)
     const tree = await readMarkdownTree(root)
     return { root, tree }
+  })
+
+  // 从“最近打开的文件夹”直接按路径打开工作区；路径已失效时返回 null。
+  ipcMain.handle('workspace:openFolderPath', async (_e, path: string) => {
+    const resolved = resolve(path)
+    const stat = await fs.stat(resolved).catch(() => null)
+    if (!stat || !stat.isDirectory()) return null
+    workspaceRoots.add(resolved)
+    recordRecentFolder(resolved)
+    const tree = await readMarkdownTree(resolved)
+    return { root: resolved, tree }
+  })
+
+  // 从“最近打开的文件”打开前：校验文件存在，并把其目录纳入工作区以通过 assertInWorkspace。
+  ipcMain.handle('workspace:prepareRecentFile', async (_e, path: string) => {
+    const resolved = resolve(path)
+    const stat = await fs.stat(resolved).catch(() => null)
+    if (!stat || !stat.isFile()) return false
+    workspaceRoots.add(dirname(resolved))
+    return true
   })
 
   ipcMain.handle('workspace:openFile', async () => {
@@ -275,6 +312,7 @@ app.whenReady().then(async () => {
       if (!stat) continue
       if (stat.isDirectory()) {
         workspaceRoots.add(resolved)
+        recordRecentFolder(resolved)
         if (seenDirectoryRoots.has(resolved)) continue
         seenDirectoryRoots.add(resolved)
         directoryRoots.push(resolved)
@@ -307,7 +345,10 @@ app.whenReady().then(async () => {
   })
 
   ipcMain.handle('file:read', async (_e, path: string) => {
-    return fs.readFile(assertInWorkspace(path), 'utf-8')
+    const resolved = assertInWorkspace(path)
+    const content = await fs.readFile(resolved, 'utf-8')
+    recordRecentFile(resolved)
+    return content
   })
 
   ipcMain.handle('file:save', async (_e, path: string, content: string) => {
@@ -344,6 +385,22 @@ app.whenReady().then(async () => {
   })
   ipcMain.handle('settings:setSidebarWidth', async (_event, width: unknown) => {
     await settingsStore.update({ sidebarWidth: clampSidebarWidth(width) })
+    return spellcheckController.snapshot()
+  })
+  ipcMain.handle('settings:removeRecent', async (_event, kind: unknown, path: unknown) => {
+    if (typeof path === 'string') {
+      const state = settingsStore.getState()
+      if (kind === 'file') {
+        await settingsStore.update({ recentFiles: removeRecent(state.recentFiles, path) })
+      } else if (kind === 'folder') {
+        await settingsStore.update({ recentFolders: removeRecent(state.recentFolders, path) })
+      }
+    }
+    return spellcheckController.snapshot()
+  })
+  ipcMain.handle('settings:clearRecents', async (_event, kind: unknown) => {
+    if (kind === 'file') await settingsStore.update({ recentFiles: [] })
+    else if (kind === 'folder') await settingsStore.update({ recentFolders: [] })
     return spellcheckController.snapshot()
   })
   ipcMain.handle('spellcheck:setMode', (_event, mode: unknown, language: unknown) =>

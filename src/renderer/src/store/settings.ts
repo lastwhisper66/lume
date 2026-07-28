@@ -9,6 +9,8 @@ interface RendererSettingsStore {
   setSidebarWidth: (width: number) => Promise<void>
   setSpellcheckMode: (mode: SpellcheckMode, language?: string) => Promise<void>
   submitDetectedLanguage: (baseLanguage: string) => Promise<void>
+  removeRecent: (kind: 'file' | 'folder', path: string) => Promise<void>
+  clearRecents: (kind: 'file' | 'folder') => Promise<void>
 }
 
 let hydratePromise: Promise<void> | null = null
@@ -54,6 +56,16 @@ export const useAppSettings = create<RendererSettingsStore>((set) => ({
 
   submitDetectedLanguage: async (baseLanguage) => {
     const snapshot = await window.api.settings.submitDetectedLanguage(baseLanguage)
+    set({ snapshot, hydrated: true })
+  },
+
+  removeRecent: async (kind, path) => {
+    const snapshot = await window.api.settings.removeRecent(kind, path)
+    set({ snapshot, hydrated: true })
+  },
+
+  clearRecents: async (kind) => {
+    const snapshot = await window.api.settings.clearRecents(kind)
     set({ snapshot, hydrated: true })
   }
 }))

@@ -373,6 +373,188 @@ body,
   margin: 5px 0;
   background: var(--lume-border);
 }
+.menu-section-label {
+  padding: 4px 12px 2px;
+  color: var(--lume-text-muted);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+.menu-option-empty {
+  color: var(--lume-text-muted);
+  cursor: default;
+  opacity: 0.6;
+}
+.menu-option-empty:hover {
+  background: transparent;
+}
+.menu-flyout-recents {
+  min-width: 240px;
+}
+
+/* ---------- Recents dialog ---------- */
+.recents-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: color-mix(in srgb, var(--lume-bg) 45%, transparent);
+  backdrop-filter: blur(2px);
+}
+.recents-dialog {
+  display: flex;
+  flex-direction: column;
+  width: min(720px, 100%);
+  max-height: min(80vh, 640px);
+  border: 1px solid var(--lume-border-strong);
+  border-radius: 10px;
+  background: var(--lume-bg-elevated);
+  color: var(--lume-text);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+  overflow: hidden;
+}
+.recents-dialog-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--lume-border);
+}
+.recents-dialog-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+.recents-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--lume-text-muted);
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+}
+.recents-close:hover {
+  background: var(--lume-bg-hover);
+  color: var(--lume-text);
+}
+.recents-body {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 16px 18px 20px;
+  overflow-y: auto;
+}
+.recents-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.recents-section-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+.recents-section-title {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--lume-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.recents-clear {
+  border: 0;
+  background: transparent;
+  color: var(--lume-accent);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.recents-clear:hover {
+  text-decoration: underline;
+}
+.recents-empty {
+  margin: 2px 0;
+  color: var(--lume-text-muted);
+  font-size: 13px;
+}
+.recents-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.recents-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  border-radius: 6px;
+}
+.recents-item:hover {
+  background: var(--lume-bg-hover);
+}
+.recents-open {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+  padding: 6px 8px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.recents-name {
+  overflow: hidden;
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.recents-path {
+  overflow: hidden;
+  color: var(--lume-text-muted);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.recents-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 24px;
+  height: 24px;
+  margin-right: 6px;
+  padding: 0;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--lume-text-muted);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+}
+.recents-remove:hover {
+  background: var(--lume-bg-active);
+  color: var(--lume-text);
+}
 
 /* ---------- Status bar ---------- */
 .status-bar {
