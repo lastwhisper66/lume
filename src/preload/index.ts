@@ -48,16 +48,6 @@ const api = {
     },
     confirmClose: (): void => {
       ipcRenderer.send('app:confirmClose')
-    },
-    onMenuOpenFile: (cb: () => void): (() => void) => {
-      const listener = (): void => cb()
-      ipcRenderer.on('menu:openFile', listener)
-      return () => ipcRenderer.removeListener('menu:openFile', listener)
-    },
-    onMenuOpenFolder: (cb: () => void): (() => void) => {
-      const listener = (): void => cb()
-      ipcRenderer.on('menu:openFolder', listener)
-      return () => ipcRenderer.removeListener('menu:openFolder', listener)
     }
   },
   theme: {

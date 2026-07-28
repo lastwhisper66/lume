@@ -1,11 +1,10 @@
-import { app, shell, BrowserWindow, ipcMain, dialog, nativeTheme, session } from 'electron'
+import { app, shell, BrowserWindow, ipcMain, dialog, nativeTheme, session, Menu } from 'electron'
 import { join, resolve, relative, isAbsolute, dirname, basename } from 'path'
 import { promises as fs } from 'fs'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { ThemeManager } from './theme'
 import type { ThemePayload } from './theme'
-import { buildAppMenu } from './menu'
 import { SettingsStore } from './settings'
 import { SpellcheckController } from './spellcheck'
 import { clampSidebarWidth } from '../shared/settings'
@@ -144,14 +143,13 @@ function assertInWorkspace(p: string): string {
 const settingsStore = new SettingsStore(join(app.getPath('userData'), 'settings.json'))
 const themeManager = new ThemeManager(settingsStore)
 
-/** 把当前有效主题推给所有窗口，并重建菜单勾选 */
+/** 把当前有效主题推给所有窗口 */
 async function pushTheme(): Promise<void> {
   const payload = await themeManager.currentCss()
   for (const w of BrowserWindow.getAllWindows()) {
     w.webContents.send('theme:apply', payload)
     applyTitleBarOverlay(w, payload)
   }
-  await buildAppMenu(themeManager)
 }
 
 async function createWindow(): Promise<void> {
@@ -215,6 +213,9 @@ async function createWindow(): Promise<void> {
 app.whenReady().then(async () => {
   // Set app user model id for windows
   electronApp.setAppUserModelId('com.lume.app')
+
+  // 全自定义窗口 chrome：由渲染进程绘制菜单栏，移除原生应用菜单
+  Menu.setApplicationMenu(null)
 
   await settingsStore.init()
   await themeManager.init(() => {
@@ -367,7 +368,6 @@ app.whenReady().then(async () => {
   })
 
   await createWindow()
-  await buildAppMenu(themeManager)
 
   app.on('activate', function () {
     // On macOS it's common to re-create a window in the app when the

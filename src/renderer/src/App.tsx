@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import Editor from './components/Editor'
 import { flushTransientEdits } from './components/Editor/transientEdits'
 import DocumentHeader from './components/Navigation/DocumentHeader'
+import MenuBar from './components/Navigation/MenuBar'
 import StatusBar from './components/StatusBar/StatusBar'
 import Sidebar from './components/Workspace/Sidebar'
 import { useAppSettings } from './store/settings'
@@ -62,9 +63,14 @@ function App(): React.JSX.Element {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+      const mod = e.ctrlKey || e.metaKey
+      if (mod && e.key.toLowerCase() === 's') {
         e.preventDefault()
         void saveActive()
+      } else if (mod && e.key.toLowerCase() === 'o') {
+        e.preventDefault()
+        if (e.shiftKey) void openFolder()
+        else void openFileByDialog()
       }
     }
     window.addEventListener('keydown', onKey)
@@ -79,19 +85,11 @@ function App(): React.JSX.Element {
         window.api.app.confirmClose()
       }
     })
-    const disposeMenuOpenFile = window.api.app.onMenuOpenFile(() => {
-      void openFileByDialog()
-    })
-    const disposeMenuOpenFolder = window.api.app.onMenuOpenFolder(() => {
-      void openFolder()
-    })
     return () => {
       window.removeEventListener('keydown', onKey)
       window.removeEventListener('dragover', prevent)
       window.removeEventListener('drop', prevent)
       disposeQueryClose()
-      disposeMenuOpenFile()
-      disposeMenuOpenFolder()
     }
   }, [saveActive, openFolder, openFileByDialog])
 
@@ -134,6 +132,7 @@ function App(): React.JSX.Element {
       onDrop={onDrop}
     >
       <DocumentHeader />
+      <MenuBar />
       <div className={'sidebar' + (sidebarVisible ? '' : ' sidebar-hidden')}>
         <Sidebar />
       </div>
