@@ -14,6 +14,7 @@ function App(): React.JSX.Element {
   const openFolder = useWorkspace((s) => s.openFolder)
   const openFileByDialog = useWorkspace((s) => s.openFileByDialog)
   const openDropped = useWorkspace((s) => s.openDropped)
+  const closeActive = useWorkspace((s) => s.closeActive)
   const hydrateSettings = useAppSettings((s) => s.hydrate)
   const sidebarVisible = useAppSettings((s) => s.snapshot?.sidebarVisible ?? false)
   const setSidebarVisible = useAppSettings((s) => s.setSidebarVisible)
@@ -67,6 +68,9 @@ function App(): React.JSX.Element {
       if (mod && e.key.toLowerCase() === 's') {
         e.preventDefault()
         void saveActive()
+      } else if (mod && e.key.toLowerCase() === 'w') {
+        e.preventDefault()
+        void closeActive()
       } else if (mod && e.key.toLowerCase() === 'o') {
         e.preventDefault()
         if (e.shiftKey) void openFolder()
@@ -91,7 +95,7 @@ function App(): React.JSX.Element {
       window.removeEventListener('drop', prevent)
       disposeQueryClose()
     }
-  }, [saveActive, openFolder, openFileByDialog])
+  }, [saveActive, openFolder, openFileByDialog, closeActive])
 
   const hasFiles = (e: React.DragEvent): boolean => e.dataTransfer.types.includes('Files')
 

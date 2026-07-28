@@ -59,6 +59,8 @@ export function MenuBar(): React.JSX.Element {
   const snapshot = useAppSettings((state) => state.snapshot)
   const openFolder = useWorkspace((state) => state.openFolder)
   const openFileByDialog = useWorkspace((state) => state.openFileByDialog)
+  const closeActive = useWorkspace((state) => state.closeActive)
+  const hasDocument = useWorkspace((state) => state.document !== null)
 
   const [openMenu, setOpenMenu] = useState<MenuId | null>(null)
   const [themes, setThemes] = useState<string[]>([])
@@ -145,6 +147,18 @@ export function MenuBar(): React.JSX.Element {
               <span className="menu-option-check" aria-hidden="true" />
               <span className="menu-option-label">打开文件夹…</span>
               <span className="menu-option-accel">Ctrl+Shift+O</span>
+            </button>
+            <div className="menu-separator" role="separator" />
+            <button
+              className="menu-option"
+              type="button"
+              role="menuitem"
+              disabled={!hasDocument}
+              onClick={() => run(() => void closeActive())}
+            >
+              <span className="menu-option-check" aria-hidden="true" />
+              <span className="menu-option-label">关闭文件</span>
+              <span className="menu-option-accel">Ctrl+W</span>
             </button>
           </div>
         )}

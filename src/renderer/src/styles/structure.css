@@ -337,6 +337,14 @@ body,
   outline: none;
   background: var(--lume-bg-hover);
 }
+.menu-option:disabled {
+  color: var(--lume-text-muted);
+  cursor: default;
+  opacity: 0.5;
+}
+.menu-option:disabled:hover {
+  background: transparent;
+}
 .menu-option[aria-checked='true'] {
   background: var(--lume-bg-active);
 }

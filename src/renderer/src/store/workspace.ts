@@ -28,6 +28,7 @@ interface WorkspaceStore {
   openDropped: (files: File[]) => Promise<void>
   updateDocumentState: (documentId: number, state: EditorState, contentChanged?: boolean) => void
   saveActive: () => Promise<boolean>
+  closeActive: () => Promise<void>
 }
 
 function makeState(markdown: string): EditorState {
@@ -121,6 +122,14 @@ export const useWorkspace = create<WorkspaceStore>((set, get) => {
       }),
 
     openFile: (path) => enqueueOpen(() => replaceDocument(path)),
+
+    closeActive: () =>
+      enqueueOpen(async () => {
+        if (!get().document) return
+        // 与切换文件一致：先自动保存 dirty 文档，保存失败则中止关闭并保留文档。
+        if (!(await saveBeforeReplace())) return
+        set({ document: null })
+      }),
 
     openFileByDialog: () =>
       enqueueOpen(async () => {
