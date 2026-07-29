@@ -54,41 +54,41 @@ describe('findRevealRun', () => {
   it('finds a strong run when the caret is inside it', () => {
     const state = stateWithCaret('Hello **world**', 9)
     const expected = firstMarkRun(state.doc, 'strong')
-    expect(findRevealRun(state)).toEqual(expected)
+    expect(findRevealRun(state.selection)).toEqual(expected)
   })
 
   it('finds a run when the caret merely touches its edge (single-char marks)', () => {
     const doc = parse('a *b* c')
     const run = firstMarkRun(doc, 'em')
-    expect(findRevealRun(stateWithCaret('a *b* c', run.from))).toEqual(run)
+    expect(findRevealRun(stateWithCaret('a *b* c', run.from).selection)).toEqual(run)
   })
 
   it('finds inline code and strikethrough runs', () => {
     const codeState = stateWithCaret('x `y` z', firstMarkRun(parse('x `y` z'), 'code').from + 1)
-    expect(findRevealRun(codeState)?.from).toBe(firstMarkRun(codeState.doc, 'code').from)
+    expect(findRevealRun(codeState.selection)?.from).toBe(firstMarkRun(codeState.doc, 'code').from)
 
     const strikeState = stateWithCaret(
       '~~gone~~',
       firstMarkRun(parse('~~gone~~'), 'strikethrough').from + 1
     )
-    expect(findRevealRun(strikeState)?.from).toBe(
+    expect(findRevealRun(strikeState.selection)?.from).toBe(
       firstMarkRun(strikeState.doc, 'strikethrough').from
     )
   })
 
   it('returns null for plain text', () => {
-    expect(findRevealRun(stateWithCaret('just text', 3))).toBeNull()
+    expect(findRevealRun(stateWithCaret('just text', 3).selection)).toBeNull()
   })
 
   it('does not reveal inline marks inside a heading (headingSource owns that)', () => {
     const doc = parse('# **bold**')
     const run = firstMarkRun(doc, 'strong')
-    expect(findRevealRun(stateWithCaret('# **bold**', run.from + 1))).toBeNull()
+    expect(findRevealRun(stateWithCaret('# **bold**', run.from + 1).selection)).toBeNull()
   })
 
   it('excludes link-marked text (handled by the link reveal instead)', () => {
     const state = stateWithCaret('[text](http://a.com)', 3)
-    expect(findRevealRun(state)).toBeNull()
+    expect(findRevealRun(state.selection)).toBeNull()
   })
 
   it('returns null for a non-empty selection', () => {
@@ -96,7 +96,7 @@ describe('findRevealRun', () => {
     const run = firstMarkRun(doc, 'strong')
     const base = EditorState.create({ doc, schema })
     const state = base.apply(base.tr.setSelection(TextSelection.create(base.doc, run.from, run.to)))
-    expect(findRevealRun(state)).toBeNull()
+    expect(findRevealRun(state.selection)).toBeNull()
   })
 })
 
@@ -187,6 +187,20 @@ describe('inline source reveal integration', () => {
 
     expect(findInlineSource(view.state)).toBeNull()
     expect(serialize(view.state.doc).trimEnd()).toBe('Hello **world**')
+  })
+
+  it('dissolves the old run and reveals the next in a single step when jumping between formats', () => {
+    const view = createView('**bold** and *italic*')
+    caretInto(view, 'strong')
+    expect(findInlineSource(view.state)?.node.textContent).toBe('**bold**')
+
+    // Jump straight into the italic run: the bold source must dissolve AND the
+    // italic run must reveal within this one dispatch (no second click needed).
+    caretInto(view, 'em')
+
+    expect(findInlineSource(view.state)?.node.textContent).toBe('*italic*')
+    // the previously-revealed bold run is rendered back to a strong mark
+    expect(serialize(view.state.doc).trimEnd()).toBe('**bold** and *italic*')
   })
 
   it('does not immediately re-reveal after exiting to the run boundary', () => {

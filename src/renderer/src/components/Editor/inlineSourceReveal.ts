@@ -1,7 +1,7 @@
 import { Fragment, Mark, Slice } from 'prosemirror-model'
 import type { Node as PMNode, Schema } from 'prosemirror-model'
 import { Plugin, PluginKey, TextSelection } from 'prosemirror-state'
-import type { EditorState, Transaction } from 'prosemirror-state'
+import type { EditorState, Selection, Transaction } from 'prosemirror-state'
 import { ReplaceAroundStep } from 'prosemirror-transform'
 import { parse } from './markdown/parser'
 import { serialize } from './markdown/serializer'
@@ -31,8 +31,7 @@ interface FoundSource {
 }
 
 /** 光标所在文本块内，与光标相邻/相交且带目标标记（且不含 link）的最大连续片段 */
-export function findRevealRun(state: EditorState): RevealRun | null {
-  const sel = state.selection
+export function findRevealRun(sel: Selection): RevealRun | null {
   if (!(sel instanceof TextSelection) || !sel.empty) return null
   const $pos = sel.$from
   const parent = $pos.parent
@@ -84,12 +83,11 @@ export function findInlineSource(state: EditorState): FoundSource | null {
 }
 
 /** 把 [from,to) 的行内内容序列化为 Markdown 源码（如 `**world**`） */
-function runToSource(state: EditorState, run: RevealRun): string {
-  const { schema } = state
-  const fragment = state.doc.slice(run.from, run.to).content
+function runToSource(doc: PMNode, schema: Schema, run: RevealRun): string {
+  const fragment = doc.slice(run.from, run.to).content
   const paragraph = schema.nodes.paragraph.create(null, fragment)
-  const doc = schema.nodes.doc.create(null, paragraph)
-  return serialize(doc).trimEnd()
+  const wrapper = schema.nodes.doc.create(null, paragraph)
+  return serialize(wrapper).trimEnd()
 }
 
 /** 把源码字符串解析回行内内容；无法解析为单段落时退化为纯文本以免丢数据 */
@@ -150,10 +148,9 @@ function buildRevealContent(
  * 揭示态节点内容：单标记情形 = 分隔符裸、inner 带真实标记（这样用户编辑记录进历史即带标记，
  * 撤销逆步重建也带标记 → 跨 dissolve 撤销无损）；嵌套/混合标记退化为全裸源码（收起走整节点回退）。
  */
-function buildSourceContent(state: EditorState, run: RevealRun, source: string): Fragment {
-  const { schema } = state
-  const inner = state.doc.textBetween(run.from, run.to)
-  const marks = uniformMarks(state.doc, run.from, run.to)
+function buildSourceContent(doc: PMNode, schema: Schema, run: RevealRun, source: string): Fragment {
+  const inner = doc.textBetween(run.from, run.to)
+  const marks = uniformMarks(doc, run.from, run.to)
   const leadLen = source.indexOf(inner)
   if (marks && marks.length > 0 && inner.length > 0 && leadLen >= 0) {
     return buildRevealContent(schema, source, inner, marks, leadLen)
@@ -161,21 +158,47 @@ function buildSourceContent(state: EditorState, run: RevealRun, source: string):
   return Fragment.from(schema.text(source))
 }
 
-function revealTransaction(state: EditorState, run: RevealRun, caret: number): Transaction | null {
-  const source = runToSource(state, run)
-  if (!source) return null
-  const { schema } = state
-  const node = schema.nodes.inline_source.create(null, buildSourceContent(state, run, source))
-  const tr = state.tr.replaceWith(run.from, run.to, node)
-
-  const renderedText = state.doc.textBetween(run.from, run.to)
+/**
+ * 把 run 揭示为 inline_source 节点的步骤追加到已有事务上（读取并按 tr 当前 doc 定位）。既可用于
+ * 独立的揭示事务，也可拼接在一次 dissolve 事务之后 —— 于同一事务内完成「收起旧片段 + 揭示新片段」。
+ * @returns 是否成功追加（源码为空时不揭示，返回 false）
+ */
+function appendReveal(tr: Transaction, schema: Schema, run: RevealRun, caret: number): boolean {
+  const source = runToSource(tr.doc, schema, run)
+  if (!source) return false
+  const renderedText = tr.doc.textBetween(run.from, run.to)
+  const content = buildSourceContent(tr.doc, schema, run, source)
+  tr.replaceWith(run.from, run.to, schema.nodes.inline_source.create(null, content))
   const offset = revealCaretOffset(source, renderedText, caret - run.from)
   const caretPos = run.from + 1 + offset
   tr.setSelection(TextSelection.create(tr.doc, caretPos))
+  return true
+}
+
+function revealTransaction(state: EditorState, run: RevealRun, caret: number): Transaction | null {
+  const tr = state.tr
+  if (!appendReveal(tr, state.schema, run, caret)) return null
   tr.setMeta(key, { suppressAt: null })
   markTransient(tr)
   tr.setMeta('addToHistory', false)
   return tr
+}
+
+/**
+ * 收起事务已把光标落在文档中的新位置；若该位置正好落入另一个可揭示片段，则在「同一事务」内立即
+ * 揭示它。必须与 dissolve 合并为一次事务：ProseMirror 不会对「本插件自己 append 的事务」再次回调
+ * appendTransaction（见 EditorState.applyTransaction 里的 seen[i].n 去重），因此不能依赖二次触发来
+ * 揭示第二个片段，否则用户从一个格式点进另一个格式时，第二个格式要再点一次才进入编辑态。
+ */
+function revealAfterDissolve(tr: Transaction, schema: Schema): void {
+  const sel = tr.selection
+  if (!(sel instanceof TextSelection) || !sel.empty) return
+  const meta = tr.getMeta(key) as InlineRevealState | undefined
+  const suppressAt = meta?.suppressAt ?? null
+  if (suppressAt !== null && suppressAt === sel.from) return
+  const run = findRevealRun(sel)
+  if (!run) return
+  appendReveal(tr, schema, run, sel.from)
 }
 
 /**
@@ -365,13 +388,16 @@ export function inlineSourceRevealPlugin(): Plugin<InlineRevealState> {
         const end = existing.pos + existing.node.nodeSize
         // 选区仍严格落在源码节点内部 → 维持揭示（含在其中选择符号）。
         if (sel.from > start && sel.to < end) return null
-        return dissolveTransaction(newState, existing)
+        // 收起旧片段，并在同一事务内立即揭示光标落点处的新片段（若有）。
+        const tr = dissolveTransaction(newState, existing)
+        revealAfterDissolve(tr, newState.schema)
+        return tr
       }
 
       if (!(sel instanceof TextSelection) || !sel.empty) return null
       const { suppressAt } = key.getState(newState) ?? { suppressAt: null }
       if (suppressAt !== null && sel.from === suppressAt) return null
-      const run = findRevealRun(newState)
+      const run = findRevealRun(sel)
       if (!run) return null
       return revealTransaction(newState, run, sel.from)
     }
