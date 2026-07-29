@@ -115,6 +115,28 @@ describe('HeadingSourceView integration', () => {
     expect(view.dom.querySelector('.heading-source-rendered')?.tagName).toBe('H2')
   })
 
+  it('reveals a half-degraded nested format as raw source and reforms it', () => {
+    const view = createView('# **bold**')
+    const textarea = openHeadingSource(view)
+    expect(textarea.value).toBe('# **bold**')
+
+    // Delete one `*`: `**bold**` -> em("bold") + a stray literal `*`.
+    inputSource(textarea, '# *bold**')
+    const heading = view.state.doc.firstChild
+    expect(heading?.firstChild?.marks.map((m) => m.type.name)).toEqual(['em'])
+    expect(heading?.textContent).toBe('bold*')
+
+    // Re-opening must show the stray `*` raw (no `\*`), not an escaped source.
+    textarea.dispatchEvent(new FocusEvent('blur'))
+    const reopened = openHeadingSource(view)
+    expect(reopened.value).toBe('# *bold**')
+
+    // Adding the `*` back reforms strong, proving the round-trip is not broken.
+    inputSource(reopened, '# **bold**')
+    expect(view.state.doc.firstChild?.firstChild?.marks.map((m) => m.type.name)).toEqual(['strong'])
+    expect(view.state.doc.firstChild?.textContent).toBe('bold')
+  })
+
   it('converts to a paragraph immediately when the space after the marker is removed', () => {
     const view = createView('# Title')
     const textarea = openHeadingSource(view)

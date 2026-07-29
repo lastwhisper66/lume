@@ -3,7 +3,7 @@ import type { Node as PMNode, Schema } from 'prosemirror-model'
 import { Plugin, Selection, TextSelection } from 'prosemirror-state'
 import type { EditorView, NodeView } from 'prosemirror-view'
 import { parse } from '../markdown/parser'
-import { serialize } from '../markdown/serializer'
+import { serializeReveal } from '../markdown/serializer'
 
 const headingViewRegistry = new WeakMap<HTMLElement, HeadingSourceView>()
 
@@ -289,7 +289,9 @@ export class HeadingSourceView implements NodeView {
   }
 
   private serializeNode(node: PMNode): string {
-    return serialize(node.type.schema.node('doc', null, [node])).trimEnd()
+    // 用非转义的揭示序列化，让 textarea 显示可直接编辑的裸 Markdown：删掉嵌套格式的一个
+    // 分隔符后剩下的游离 `*`/`~`/`` ` `` 不会被写成 `\*`，从而能补回分隔符复原格式。
+    return serializeReveal(node.type.schema.node('doc', null, [node])).trimEnd()
   }
 
   private handleRenderedClick = (event: MouseEvent): void => {
