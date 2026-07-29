@@ -225,6 +225,55 @@ function applySurgicalDissolve(tr: Transaction, found: FoundSource): boolean {
   return true
 }
 
+// 可参与「重新组合」的行内分隔符字符（em/strong=*、code=`、strikethrough=~）。
+const ABSORB_DELIMITERS = new Set(['*', '`', '~'])
+
+/** [p, p+1) 处文本字符是否带任何标记（带标记的字符不属于「游离分隔符」，不吸收） */
+function charHasMark(doc: PMNode, p: number): boolean {
+  let marked = false
+  doc.nodesBetween(p, p + 1, (node) => {
+    if (node.isText && node.marks.length > 0) marked = true
+  })
+  return marked
+}
+
+/**
+ * 回退重解析前，把紧贴节点两侧、同段落内「裸的分隔符字符」并入源码一起重解析。
+ *
+ * 场景：`**world**` 删一个 `*` 收起为 `em(world)` + 游离 `*`（markdown 忠实解析）；再进入
+ * 该 em 揭示只覆盖 `world`（游离 `*` 在节点外），补一个 `*` 后节点是 `**world*`、游离 `*` 仍在
+ * 节点外 → 单独重解析成 `*world*` 字面。把节点边界外相邻的裸分隔符一并纳入源码，`**world*` + `*`
+ * = `**world**` 便能重新解析为 strong。仅吸收裸分隔符字符：若不能重组，重解析结果与原字面等价，无损。
+ */
+function absorbAdjacentDelimiters(
+  state: EditorState,
+  from: number,
+  to: number,
+  source: string
+): { from: number; to: number; source: string } {
+  const { doc } = state
+  const blockStart = doc.resolve(from).start()
+  const blockEnd = doc.resolve(to).end()
+  let left = from
+  while (left > blockStart) {
+    const ch = doc.textBetween(left - 1, left)
+    if (!ABSORB_DELIMITERS.has(ch) || charHasMark(doc, left - 1)) break
+    left--
+  }
+  let right = to
+  while (right < blockEnd) {
+    const ch = doc.textBetween(right, right + 1)
+    if (!ABSORB_DELIMITERS.has(ch) || charHasMark(doc, right)) break
+    right++
+  }
+  if (left === from && right === to) return { from, to, source }
+  return {
+    from: left,
+    to: right,
+    source: doc.textBetween(left, from) + source + doc.textBetween(to, right)
+  }
+}
+
 function dissolveTransaction(
   state: EditorState,
   found: FoundSource,
@@ -237,7 +286,8 @@ function dissolveTransaction(
   // 保标记收起（干净揭示形 → 跨 dissolve 撤销无损）；分隔符被改/嵌套等情形回退整节点重解析
   // 替换（那一次跨 dissolve 撤销为无害 no-op，见 applySurgicalDissolve）。
   if (!applySurgicalDissolve(tr, found)) {
-    tr.replaceWith(from, to, sourceToInline(state, found.node.textContent))
+    const merged = absorbAdjacentDelimiters(state, from, to, found.node.textContent)
+    tr.replaceWith(merged.from, merged.to, sourceToInline(state, merged.source))
   }
 
   // 光标此刻已在节点外（正因如此才收起），用 mapping 平移选区两端即可；范围选区

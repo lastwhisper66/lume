@@ -237,6 +237,44 @@ describe('inline source reveal integration', () => {
     expect(serialize(view.state.doc).trimEnd()).toBe('Hello *world*')
   })
 
+  it('promotes italic back to bold when re-adding a delimiter after a demote', () => {
+    // 用户报告：**world** 删一个 * 变斜体后，补一个 * 应重新变粗体（不能停留为字面 *world*）。
+    const view = createView('Hello **world**')
+    caretInto(view, 'strong')
+    const src = findInlineSource(view.state)!
+    view.dispatch(view.state.tr.delete(src.pos + 1, src.pos + 2)) // 删前导 * → *world**
+    view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, 1))) // 离开 → em + 游离 *
+    expect(view.state.doc.rangeHasMark(0, view.state.doc.content.size, schema.marks.em)).toBe(true)
+
+    caretInto(view, 'em') // 重新进入斜体，揭示 *world*
+    const em = findInlineSource(view.state)!
+    view.dispatch(view.state.tr.insertText('*', em.pos + 1)) // 前面补 * → 节点 **world*（游离 * 在节点外）
+    view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, 1))) // 离开 → 吸收游离 * 重解析
+    expect(serialize(view.state.doc).trimEnd()).toBe('Hello **world**')
+    expect(view.state.doc.rangeHasMark(0, view.state.doc.content.size, schema.marks.strong)).toBe(
+      true
+    )
+  })
+
+  it('promotes back to bold when the demote left a leading stray delimiter', () => {
+    const view = createView('Hello **world**')
+    caretInto(view, 'strong')
+    const src = findInlineSource(view.state)!
+    const end = src.pos + src.node.nodeSize - 1
+    view.dispatch(view.state.tr.delete(end - 1, end)) // 删尾部一个 * → **world*
+    view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, 1))) // 离开 → 游离 * + em
+    expect(view.state.doc.rangeHasMark(0, view.state.doc.content.size, schema.marks.em)).toBe(true)
+
+    caretInto(view, 'em')
+    const em = findInlineSource(view.state)!
+    view.dispatch(view.state.tr.insertText('*', em.pos + em.node.nodeSize - 1)) // 末尾补 * → *world**
+    view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, 1)))
+    expect(serialize(view.state.doc).trimEnd()).toBe('Hello **world**')
+    expect(view.state.doc.rangeHasMark(0, view.state.doc.content.size, schema.marks.strong)).toBe(
+      true
+    )
+  })
+
   it('undoes an edit while the span is still revealed', () => {
     const view = createView('Hello **world**')
     caretInto(view, 'strong')
