@@ -4,7 +4,6 @@ import { Plugin, Selection, TextSelection } from 'prosemirror-state'
 import type { EditorView, NodeView } from 'prosemirror-view'
 import { parse } from '../markdown/parser'
 import { serialize } from '../markdown/serializer'
-import { registerTransientEditFlush } from '../transientEdits'
 
 const headingViewRegistry = new WeakMap<HTMLElement, HeadingSourceView>()
 
@@ -187,9 +186,6 @@ export class HeadingSourceView implements NodeView {
   private resizeObserver: ResizeObserver | null = null
   private cleaningUp = false
   private dispatchingInput = false
-  private unsyncedDraft = false
-  private flushingDraft = false
-  private unregisterTransientFlush: (() => void) | null = null
   private pendingSelection: { from: number; to: number } | null = null
   private openScheduled = false
   private destroyed = false
@@ -214,7 +210,6 @@ export class HeadingSourceView implements NodeView {
     this.node = node
     this.updateRenderedLevel(node.attrs.level as number)
     if (this.input && !this.dispatchingInput) {
-      this.unsyncedDraft = false
       const value = this.serializeNode(node)
       if (this.input.value !== value) {
         const selectionStart = Math.min(this.input.selectionStart, value.length)
@@ -315,7 +310,6 @@ export class HeadingSourceView implements NodeView {
     input.addEventListener('input', this.handleInput)
     input.addEventListener('keydown', this.handleKeyDown)
     this.input = input
-    this.unregisterTransientFlush = registerTransientEditFlush(this.flushTransientDraft)
     this.applyHeadingPresentation()
     this.rendered.hidden = true
     this.dom.appendChild(input)
@@ -335,11 +329,12 @@ export class HeadingSourceView implements NodeView {
     if (!input || pos === undefined) return
     const parsed = parseSingleBlock(input.value)
     if (parsed?.type !== this.node.type) {
-      this.unsyncedDraft = true
-      this.resizeInput()
+      // Source is no longer a valid heading (e.g. the space after the # markers
+      // was removed): convert to a paragraph immediately so it renders as body
+      // text in place, instead of holding a draft until the caret leaves.
+      this.convertToParagraph()
       return
     }
-    this.unsyncedDraft = false
     const tr = this.view.state.tr.replaceWith(pos, pos + this.node.nodeSize, parsed)
     this.dispatchingInput = true
     try {
@@ -348,6 +343,18 @@ export class HeadingSourceView implements NodeView {
       this.dispatchingInput = false
     }
     this.resizeInput()
+  }
+
+  private convertToParagraph(): void {
+    const input = this.input
+    const pos = this.getPos()
+    if (!input || pos === undefined) return
+    const paragraph = paragraphFromSource(this.node.type.schema, input.value)
+    const offset = Math.min(input.selectionStart, paragraph.content.size)
+    const tr = this.view.state.tr.replaceWith(pos, pos + this.node.nodeSize, paragraph)
+    tr.setSelection(TextSelection.create(tr.doc, pos + 1 + offset))
+    this.view.dispatch(tr)
+    this.view.focus()
   }
 
   private handleKeyDown = (event: KeyboardEvent): void => {
@@ -361,10 +368,6 @@ export class HeadingSourceView implements NodeView {
     if (modifier && event.key.toLowerCase() === 'y') {
       event.preventDefault()
       redo(this.view.state, this.view.dispatch)
-      return
-    }
-    if (modifier && event.key.toLowerCase() === 's') {
-      this.flushTransientDraft()
       return
     }
     if (event.key === 'Enter') {
@@ -456,31 +459,7 @@ export class HeadingSourceView implements NodeView {
   }
 
   private handleBlur = (): void => {
-    if (this.unsyncedDraft && this.commitInvalidDraft()) return
     this.finishEditing()
-  }
-
-  private flushTransientDraft = (): void => {
-    if (!this.unsyncedDraft || this.flushingDraft) return
-    this.flushingDraft = true
-    try {
-      this.commitInvalidDraft()
-    } finally {
-      this.flushingDraft = false
-    }
-  }
-
-  private commitInvalidDraft(): boolean {
-    const input = this.input
-    const pos = this.getPos()
-    if (!input || pos === undefined) return false
-    const paragraph = paragraphFromSource(this.node.type.schema, input.value)
-    const offset = Math.min(input.selectionStart, paragraph.content.size)
-    const tr = this.view.state.tr.replaceWith(pos, pos + this.node.nodeSize, paragraph)
-    tr.setSelection(TextSelection.create(tr.doc, pos + 1 + offset))
-    this.unsyncedDraft = false
-    this.view.dispatch(tr)
-    return true
   }
 
   private applyHeadingPresentation(): void {
@@ -504,8 +483,6 @@ export class HeadingSourceView implements NodeView {
     if (!this.input) return
     this.cleaningUp = true
     const input = this.input
-    this.unregisterTransientFlush?.()
-    this.unregisterTransientFlush = null
     input.removeEventListener('blur', this.handleBlur)
     input.removeEventListener('input', this.handleInput)
     input.removeEventListener('keydown', this.handleKeyDown)
@@ -513,7 +490,6 @@ export class HeadingSourceView implements NodeView {
     this.resizeObserver = null
     input.remove()
     this.input = null
-    this.unsyncedDraft = false
     this.rendered.hidden = false
     queueMicrotask(() => {
       this.cleaningUp = false

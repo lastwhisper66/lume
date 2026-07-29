@@ -6,6 +6,7 @@ import {
   ellipsis,
   InputRule
 } from 'prosemirror-inputrules'
+import { TextSelection } from 'prosemirror-state'
 import type { Plugin } from 'prosemirror-state'
 import type { MarkType, NodeType } from 'prosemirror-model'
 import { schema } from './schema/gfm'
@@ -78,6 +79,37 @@ const emRule = markInputRule(/(?<!\*)\*([^*]+)\*$/, schema.marks.em)
 const codeRule = markInputRule(/`([^`]+)`$/, schema.marks.code)
 const strikeRule = markInputRule(/~~([^~]+)~~$/, schema.marks.strikethrough)
 
+// 「补起始符」成标记：markInputRule 只在「最后输入闭合符」时触发；当闭合符已在光标右侧
+// （例如揭示态半程降级后残留的 `xxx` / xxx** / xxx*，用户重新补上前导分隔符），需要向右
+// 看齐再成标记，否则文本会一直保持字面 Markdown、永不渲染。
+//   openRegex：匹配「刚输入的起始分隔符」（textBefore 末尾）。
+//   closeRegex：在光标右侧文本上匹配 `^内容+闭合符`，捕获组 1 为内容（不含分隔符字符）。
+// 闭合规则优先于此，故本组规则须排在闭合规则之后，避免抢占「最后输入闭合符」的正常成标记。
+function openMarkInputRule(openRegex: RegExp, closeRegex: RegExp, markType: MarkType): InputRule {
+  return new InputRule(openRegex, (state, _match, start, end) => {
+    const $end = state.doc.resolve(end)
+    const after = state.doc.textBetween(end, $end.end())
+    const close = closeRegex.exec(after)
+    if (!close) return null
+    const content = close[1]
+    if (!content) return null
+    const closeLen = close[0].length - content.length
+    const contentTo = end + content.length
+    const tr = state.tr
+    tr.delete(contentTo, contentTo + closeLen) // 删右侧闭合符
+    tr.addMark(end, contentTo, markType.create())
+    if (end > start) tr.delete(start, end) // 删已落入文档的前导符（如 ** 的第一个 *）
+    tr.removeStoredMark(markType)
+    tr.setSelection(TextSelection.create(tr.doc, tr.mapping.map(end))) // 光标留在用户输入处
+    return tr
+  })
+}
+
+const strongOpenRule = openMarkInputRule(/\*\*$/, /^([^*]+)\*\*/, schema.marks.strong)
+const emOpenRule = openMarkInputRule(/(?<!\*)\*$/, /^([^*]+)\*(?!\*)/, schema.marks.em)
+const codeOpenRule = openMarkInputRule(/`$/, /^([^`]+)`/, schema.marks.code)
+const strikeOpenRule = openMarkInputRule(/~~$/, /^([^~]+)~~/, schema.marks.strikethrough)
+
 export function buildInputRules(): Plugin {
   return inputRules({
     rules: [
@@ -93,7 +125,11 @@ export function buildInputRules(): Plugin {
       strongRule,
       emRule,
       codeRule,
-      strikeRule
+      strikeRule,
+      strongOpenRule,
+      emOpenRule,
+      codeOpenRule,
+      strikeOpenRule
     ]
   })
 }
