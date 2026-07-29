@@ -289,6 +289,54 @@ describe('inline source reveal integration', () => {
     )
   })
 
+  /** 在 view 上把光标停到 pos，再触发一次真实按键（走 handleKeyDown 链） */
+  function pressKey(view: EditorView, key: string, pos: number): boolean {
+    view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, pos)))
+    return (
+      view.someProp('handleKeyDown', (f) => f(view, new KeyboardEvent('keydown', { key }))) ?? false
+    )
+  }
+
+  it('Delete removes the trailing delimiter inside the source instead of inserting a newline', () => {
+    // 用户报告：`*斜体|*`（光标在闭合分隔符前）按 Delete 不删除、反而换行。
+    // 源码节点是 code:true（保留空白），原生前向删除在边界会插入 `\n`；接管到模型层修复。
+    const view = createView('a *italic* b')
+    caretInto(view, 'em')
+    const src = findInlineSource(view.state)!
+    expect(src.node.textContent).toBe('*italic*')
+    const contentEnd = src.pos + src.node.nodeSize - 1
+
+    const handled = pressKey(view, 'Delete', contentEnd - 1) // 光标在闭合 * 前
+    expect(handled).toBe(true)
+    // 删掉的是闭合 *，没有出现换行；节点内容变为 `*italic`
+    expect(findInlineSource(view.state)?.node.textContent).toBe('*italic')
+    expect(view.state.doc.textContent).not.toContain('\n')
+  })
+
+  it('Backspace removes the leading delimiter inside the source', () => {
+    const view = createView('a *italic* b')
+    caretInto(view, 'em')
+    const src = findInlineSource(view.state)!
+    const contentStart = src.pos + 1
+
+    const handled = pressKey(view, 'Backspace', contentStart + 1) // 光标在开头 * 后
+    expect(handled).toBe(true)
+    expect(findInlineSource(view.state)?.node.textContent).toBe('italic*')
+  })
+
+  it('leaves the boundary Backspace/Delete to the default commands (exit/dissolve)', () => {
+    const view = createView('a *italic* b')
+    caretInto(view, 'em')
+    const src = findInlineSource(view.state)!
+    const contentEnd = src.pos + src.node.nodeSize - 1
+
+    // 光标在源码末尾按 Delete：不由本插件处理，交默认命令
+    expect(pressKey(view, 'Delete', contentEnd)).toBe(false)
+    // 光标在源码开头按 Backspace：同样交默认
+    const src2 = findInlineSource(view.state)!
+    expect(pressKey(view, 'Backspace', src2.pos + 1)).toBe(false)
+  })
+
   it('undoes an edit while the span is still revealed', () => {
     const view = createView('Hello **world**')
     caretInto(view, 'strong')

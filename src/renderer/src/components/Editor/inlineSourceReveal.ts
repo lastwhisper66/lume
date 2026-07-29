@@ -360,6 +360,36 @@ export function inlineSourceRevealPlugin(): Plugin<InlineRevealState> {
       }
     },
     props: {
+      // 源码节点是 `code: true`（whitespace: pre），配合 CSS `white-space: pre-wrap`，
+      // 浏览器 contentEditable 的原生 Backspace/Delete 在节点边界处可能插入一个 `\n`
+      // 占位符（因保留空白被当成真实文本留下），表现为「不删除反而换行」。故在此把
+      // 源码节点内部的逐字符删除接管到模型层，绕过该 quirk；节点内容两端（贴边删除）
+      // 仍交默认命令处理（退出 / 收起 / 跨节点合并）。
+      handleKeyDown: (view, event) => {
+        if (event.key !== 'Backspace' && event.key !== 'Delete') return false
+        const { state } = view
+        const sel = state.selection
+        if (!(sel instanceof TextSelection) || !sel.empty) return false
+        const found = findInlineSource(state)
+        if (!found) return false
+        const contentStart = found.pos + 1
+        const contentEnd = found.pos + found.node.nodeSize - 1
+        const pos = sel.from
+        if (pos < contentStart || pos > contentEnd) return false // 光标须在源码内部
+        let from: number
+        let to: number
+        if (event.key === 'Backspace') {
+          if (pos <= contentStart) return false // 内容开头 → 交默认（退出/收起）
+          from = pos - 1
+          to = pos
+        } else {
+          if (pos >= contentEnd) return false // 内容结尾 → 交默认
+          from = pos
+          to = pos + 1
+        }
+        view.dispatch(state.tr.delete(from, to).scrollIntoView())
+        return true
+      },
       // 编辑器失焦时收起当前源码，避免未聚焦状态下露出裸 Markdown（与 .md-marker
       // 失焦隐藏的既有行为一致）。延迟并复查焦点，避免内部可编辑区短暂夺焦时误收起。
       handleDOMEvents: {
