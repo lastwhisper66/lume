@@ -102,6 +102,11 @@
   color: var(--lume-link);
 }
 
+/* 按住 Ctrl / Cmd 时，链接光标变手型，提示可点击跳转 / 打开 */
+.ProseMirror.lume-mod-active a {
+  cursor: pointer;
+}
+
 .hr-source-wrapper {
   display: block;
 }

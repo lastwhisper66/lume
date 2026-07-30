@@ -2,6 +2,8 @@ import { Plugin, PluginKey, TextSelection } from 'prosemirror-state'
 import type { EditorState } from 'prosemirror-state'
 import { Decoration, DecorationSet } from 'prosemirror-view'
 import type { EditorView } from 'prosemirror-view'
+import { scrollEditorTo } from '../Outline/editorScroll'
+import { resolveAnchor } from './anchors'
 
 // 链接右边界（doc 位置 to）在视觉上同时是「链接文本末尾」和「整段链接之后」。
 // 用 side 记录光标当前处于 URL 的哪一侧：
@@ -295,7 +297,7 @@ function linkDecorations(state: EditorState, decos: Decoration[]): void {
   flush(pos)
 }
 
-/** Ctrl / Cmd + 点击链接时在系统浏览器打开 */
+/** Ctrl / Cmd + 点击链接：文档内锚点（#slug）滚动定位，其余在系统浏览器打开 */
 export const linkClickPlugin = new Plugin({
   props: {
     handleClick(view, pos, event) {
@@ -306,11 +308,43 @@ export const linkClickPlugin = new Plugin({
       const href = mark?.attrs.href as string | undefined
       if (!href) return false
       event.preventDefault()
+      if (href.startsWith('#')) {
+        const target = resolveAnchor(view.state.doc, href)
+        if (target !== null) scrollEditorTo(target)
+        return true
+      }
       window.open(href, '_blank')
       return true
     }
   }
 })
+
+/**
+ * 按住 Ctrl / Cmd 时给编辑器 DOM 加一个类，配合 CSS 把链接光标变成手型，
+ * 提示用户可点击跳转 / 打开。松开或窗口失焦时移除。
+ */
+export function modKeyCursorPlugin(): Plugin {
+  return new Plugin({
+    view(editorView) {
+      const dom = editorView.dom
+      const sync = (event: KeyboardEvent): void => {
+        dom.classList.toggle('lume-mod-active', event.ctrlKey || event.metaKey)
+      }
+      const clear = (): void => dom.classList.remove('lume-mod-active')
+      window.addEventListener('keydown', sync)
+      window.addEventListener('keyup', sync)
+      window.addEventListener('blur', clear)
+      return {
+        destroy() {
+          window.removeEventListener('keydown', sync)
+          window.removeEventListener('keyup', sync)
+          window.removeEventListener('blur', clear)
+          clear()
+        }
+      }
+    }
+  })
+}
 
 /** pos 是否恰好是某个 link 的右边界（左侧有 link、右侧没有同一个 link） */
 function isLinkRightBoundary(state: EditorState, pos: number): boolean {

@@ -7,7 +7,12 @@ import { columnResizing, tableEditing } from 'prosemirror-tables'
 import type { Plugin } from 'prosemirror-state'
 import { keymapBindings } from './commands'
 import { buildInputRules } from './inputrules'
-import { syntaxRevealPlugin, linkClickPlugin, linkNavPlugin } from './syntaxReveal'
+import {
+  syntaxRevealPlugin,
+  linkClickPlugin,
+  linkNavPlugin,
+  modKeyCursorPlugin
+} from './syntaxReveal'
 import { inlineSourceRevealPlugin } from './inlineSourceReveal'
 import { headingRevealPlugin } from './nodeviews/headingSource'
 import { horizontalRuleRevealPlugin } from './nodeviews/horizontalRuleSource'
@@ -27,6 +32,7 @@ export function buildPlugins(): Plugin[] {
     inlineSourceRevealPlugin(),
     linkClickPlugin,
     linkNavPlugin(),
+    modKeyCursorPlugin(),
     headingRevealPlugin(),
     horizontalRuleRevealPlugin(),
     tableControlsPlugin()

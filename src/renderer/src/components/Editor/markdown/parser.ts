@@ -7,6 +7,18 @@ import { schema } from '../schema/gfm'
 
 const md = MarkdownIt('default', { html: false, linkify: true })
 
+// markdown-it 默认把非 ASCII 链接做百分号编码（`#日本語` → `#%E6...`），
+// 既污染揭示显示也污染保存。改为解码，保留作者书写的可读形式；
+// 解码后重跑 validateLink，避免被编码遮蔽的危险协议（如 %6Aavascript:）被解出。
+md.normalizeLink = (url) => {
+  try {
+    const decoded = decodeURI(url)
+    return md.validateLink(decoded) ? decoded : url
+  } catch {
+    return url
+  }
+}
+
 function listIsTight(tokens: Token[], i: number): boolean {
   while (++i < tokens.length) {
     if (tokens[i].type !== 'list_item_open') return tokens[i].hidden
