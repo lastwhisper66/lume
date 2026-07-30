@@ -86,9 +86,10 @@ describe('findRevealRun', () => {
     expect(findRevealRun(stateWithCaret('# **bold**', run.from + 1).selection)).toBeNull()
   })
 
-  it('excludes link-marked text (handled by the link reveal instead)', () => {
+  it('reveals link-marked text as its Markdown source', () => {
     const state = stateWithCaret('[text](http://a.com)', 3)
-    expect(findRevealRun(state.selection)).toBeNull()
+    const run = firstMarkRun(state.doc, 'link')
+    expect(findRevealRun(state.selection)).toEqual(run)
   })
 
   it('returns null for a non-empty selection', () => {
@@ -175,6 +176,28 @@ describe('inline source reveal integration', () => {
     const view = createView('a *b* c')
     caretInto(view, 'em')
     expect(findInlineSource(view.state)?.node.textContent).toBe('*b*')
+  })
+
+  it('reveals a link as its editable `[text](url)` Markdown source', () => {
+    const view = createView('see [text](http://a.com) end')
+    caretInto(view, 'link')
+
+    const found = findInlineSource(view.state)
+    expect(found).not.toBeNull()
+    expect(found?.node.textContent).toBe('[text](http://a.com)')
+    // Inner label carries the real link mark; the `[`/`](url)` delimiters stay bare.
+    expect(found!.node.rangeHasMark(0, found!.node.content.size, schema.marks.link)).toBe(true)
+  })
+
+  it('dissolves a revealed link back to its mark when the caret leaves', () => {
+    const view = createView('see [text](http://a.com) end')
+    caretInto(view, 'link')
+    expect(findInlineSource(view.state)).not.toBeNull()
+
+    view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, 1)))
+
+    expect(findInlineSource(view.state)).toBeNull()
+    expect(serialize(view.state.doc).trimEnd()).toBe('see [text](http://a.com) end')
   })
 
   it('dissolves back to the original mark when the caret leaves', () => {

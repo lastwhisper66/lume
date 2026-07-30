@@ -50,7 +50,7 @@ const nodes = base.spec.nodes
     group: 'inline',
     inline: true,
     content: 'text*',
-    marks: 'strong em code strikethrough',
+    marks: 'strong em code strikethrough link',
     code: true,
     selectable: false,
     parseDOM: [{ tag: 'span.md-inline-source' }],
