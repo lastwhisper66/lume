@@ -79,27 +79,9 @@
   color: var(--lume-text);
 }
 
-.md-link-marker {
-  color: var(--lume-marker);
-  font-family: var(--lume-font-mono);
-}
-.md-link-punct {
-  user-select: none;
-}
-.md-link-target {
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-}
-.md-link-input {
-  color: var(--lume-marker);
-  outline: none;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  -webkit-user-select: text;
-  user-select: text;
-}
-.md-link-input:focus {
-  color: var(--lume-link);
+/* 按住 Ctrl / Cmd 时，链接光标变手型，提示可点击跳转 / 打开 */
+.ProseMirror.lume-mod-active a {
+  cursor: pointer;
 }
 
 .hr-source-wrapper {

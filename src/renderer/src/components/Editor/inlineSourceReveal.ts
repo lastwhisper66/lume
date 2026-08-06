@@ -7,9 +7,9 @@ import { parse } from './markdown/parser'
 import { serialize } from './markdown/serializer'
 import { markTransient } from './transientEdits'
 
-// 会被「揭示为源码」的行内标记。link 走 syntaxReveal.ts 里独立的可编辑 URL 机制，
-// 故不在此列，且含 link 的文本不参与揭示，避免两套机制打架。
-const TARGET_MARKS = ['strong', 'em', 'code', 'strikethrough']
+// 会被「揭示为源码」的行内标记。link 也走这套机制：光标进入时整段 `[text](url)`
+// 揭示为可直接编辑的裸 Markdown 源码（与标题 / 加粗一致）。
+const TARGET_MARKS = ['strong', 'em', 'code', 'strikethrough', 'link']
 
 const key = new PluginKey<InlineRevealState>('inlineSourceReveal')
 
@@ -30,7 +30,7 @@ interface FoundSource {
   node: PMNode
 }
 
-/** 光标所在文本块内，与光标相邻/相交且带目标标记（且不含 link）的最大连续片段 */
+/** 光标所在文本块内，与光标相邻/相交且带目标标记（含 link）的最大连续片段 */
 export function findRevealRun(sel: Selection): RevealRun | null {
   if (!(sel instanceof TextSelection) || !sel.empty) return null
   const $pos = sel.$from
@@ -46,10 +46,7 @@ export function findRevealRun(sel: Selection): RevealRun | null {
   const runs: RevealRun[] = []
 
   parent.forEach((child) => {
-    const isTarget =
-      child.isText &&
-      !child.marks.some((m) => m.type.name === 'link') &&
-      child.marks.some((m) => TARGET_MARKS.includes(m.type.name))
+    const isTarget = child.isText && child.marks.some((m) => TARGET_MARKS.includes(m.type.name))
     if (isTarget && runStart === null) {
       runStart = pos
     } else if (!isTarget && runStart !== null) {
