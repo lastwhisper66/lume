@@ -6,9 +6,31 @@ import {
 import type { Node as PMNode } from 'prosemirror-model'
 import { serializeTable } from './tables'
 
+// 相邻同级无序列表交替 marker。prosemirror-markdown 靠「多空一行」分隔两个相邻列表，
+// 但按 CommonMark，同 marker 的两段列表中间无论空几行都会并成一个（且变成松散列表）。
+// 换 marker 才是 CommonMark 里真正的列表边界，所以紧挨着上一个 bullet_list 时翻转 marker。
+// 嵌套列表不受影响：其前一个闭合块是父项的 paragraph，不是 bullet_list。
+type ListAwareState = MarkdownSerializerState & {
+  closed?: PMNode | null
+  lumeBullet?: string
+}
+
+function bulletFor(state: ListAwareState, node: PMNode): string {
+  const explicit = node.attrs.bullet as string | undefined
+  if (explicit) return explicit
+  const adjacent = state.closed?.type === node.type
+  const bullet = adjacent && state.lumeBullet === '-' ? '*' : '-'
+  state.lumeBullet = bullet
+  return bullet
+}
+
 export const serializer = new MarkdownSerializer(
   {
     ...defaultMarkdownSerializer.nodes,
+    bullet_list(state, node) {
+      const bullet = bulletFor(state as ListAwareState, node)
+      state.renderList(node, '  ', () => bullet + ' ')
+    },
     list_item(state, node) {
       const checked = node.attrs.checked
       if (checked !== null && checked !== undefined) {

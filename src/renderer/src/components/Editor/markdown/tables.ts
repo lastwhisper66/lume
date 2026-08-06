@@ -11,11 +11,24 @@ const DELIMITER: Record<Align | 'none', string> = {
   right: '---:'
 }
 
+// code 不在此表：反引号内部不做反斜杠转义，单独在 serializeCell 里处理
 const INLINE: Record<string, [string, string]> = {
   strong: ['**', '**'],
   em: ['*', '*'],
-  code: ['`', '`'],
   strikethrough: ['~~', '~~']
+}
+
+/**
+ * 把行内代码包成反引号。反引号内部不处理反斜杠转义，所以内容必须原样写出——
+ * 若走 state.esc()，`~~` 会被写成 `\~\~`，再次解析得到字面反斜杠，每存一次多一层。
+ * 围栏长度取比内容中最长反引号串多 1；内容以反引号开头/结尾时补空格（CommonMark 会剥掉）。
+ */
+function wrapCode(text: string): string {
+  let longest = 0
+  for (const run of text.match(/`+/g) ?? []) longest = Math.max(longest, run.length)
+  const fence = '`'.repeat(longest + 1)
+  const pad = text.startsWith('`') || text.endsWith('`') ? ' ' : ''
+  return fence + pad + text + pad + fence
 }
 
 /** 将单元格 inline 内容渲染为一行 Markdown（转义竖线） */
@@ -23,7 +36,10 @@ function serializeCell(state: MarkdownSerializerState, cell: PMNode): string {
   let out = ''
   cell.forEach((child) => {
     if (!child.isText) return
-    let text = state.esc(child.text ?? '').replace(/\|/g, '\\|')
+    const raw = child.text ?? ''
+    const isCode = child.marks.some((m) => m.type.name === 'code')
+    // 竖线在 GFM 表格里即使位于反引号内也必须转义，否则会被当成列分隔符
+    let text = isCode ? wrapCode(raw.replace(/\|/g, '\\|')) : state.esc(raw).replace(/\|/g, '\\|')
     for (const mark of child.marks) {
       const d = INLINE[mark.type.name]
       if (d) text = d[0] + text + d[1]

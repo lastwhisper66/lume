@@ -163,7 +163,46 @@
   background: var(--lume-table-header-bg);
   font-weight: 600;
 }
-.lume-editor li[data-checked] {
+/* ── 列表 ────────────────────────────────────────────────────────────────── */
+/* marker 由浏览器默认提供（assets/base.css 里没有 ul reset），这里只收窄缩进、
+   按层级换符号、给 marker 一个次要色。
+   层级按「视觉嵌套深度」计数，而非「同类型列表的深度」：嵌套会有序/无序交替
+   （ul > li > ol > li > ul），按同类型算会让第三层退回一级符号，与缩进呈现的
+   深度脱节。有序列表各层一律 decimal，保持与 Markdown 源码里的数字一致。 */
+.lume-editor .ProseMirror :is(ul, ol) {
+  padding-inline-start: 1.6em;
+}
+/* 三条规则特异性递增（0,2,1 → 0,2,2 → 0,2,3），深层稳定胜出，不依赖书写顺序。
+   第四层及更深沿用 square。 */
+.lume-editor .ProseMirror ul {
+  list-style-type: disc;
+}
+.lume-editor .ProseMirror :is(ul, ol) ul {
+  list-style-type: circle;
+}
+.lume-editor .ProseMirror :is(ul, ol) :is(ul, ol) ul {
+  list-style-type: square;
+}
+.lume-editor .ProseMirror li::marker {
+  color: var(--lume-text-muted);
+}
+
+/* 松散列表的项间距。tight 列表带 data-tight="true"，松散列表没有该属性，故用
+   :not([data-tight]) 命中松散；且必须逐层写——外层可以松散而内层仍是紧凑。
+   紧凑列表靠全局 * { margin: 0 } 保持零间距。
+   li > p + p 覆盖「一个列表项里多个段落」，这种项按 CommonMark 必然是松散的。 */
+.lume-editor .ProseMirror :is(ul, ol):not([data-tight]) > li + li {
+  margin-top: 0.5em;
+}
+.lume-editor .ProseMirror li > p + p {
+  margin-top: 0.5em;
+}
+
+/* 任务列表：清掉原生 marker，用 ::before 画勾选框。
+   注意 .lume-editor li[data-checked] 与上面的 .lume-editor .ProseMirror ul 特异性相同
+   （都是 0,2,1），仅靠「写在后面」取胜过于脆弱；这里多加一层 .ProseMirror 提到 0,3,1，
+   使其不依赖规则顺序。 */
+.lume-editor .ProseMirror li[data-checked] {
   list-style: none;
 }
 .lume-editor li[data-checked]::before {
